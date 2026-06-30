@@ -1,6 +1,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { getTestsRoot } from './paths.util';
+import { resolveGherkinPaths } from './test-case-paths.util';
 
 export async function validateTestCaseFiles(
   type: string,
@@ -10,12 +11,12 @@ export async function validateTestCaseFiles(
   const normalized = filePath.replace(/\\/g, '/');
 
   if (type === 'gherkin') {
-    const featurePath = normalized.endsWith('.feature') ? normalized : `${normalized}.feature`;
-    const slug = path.basename(featurePath, '.feature');
-    const stepFile = path.join('steps', `${slug}.steps.ts`);
-    const pageObjectFile = path.join('page-objects', `${slug}.page.ts`);
-
-    for (const relativePath of [featurePath, stepFile, pageObjectFile]) {
+    const paths = resolveGherkinPaths(normalized);
+    for (const relativePath of [
+      paths.featurePath,
+      paths.stepDefinitionsPath,
+      paths.pageObjectPath,
+    ]) {
       try {
         await fs.access(path.join(testsRoot, relativePath));
       } catch {

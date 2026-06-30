@@ -101,6 +101,28 @@ export interface UpdateTestCaseDto {
   tags?: string[];
 }
 
+export interface TestCaseSource {
+  testCaseId: string;
+  type: TestCaseType;
+  paths: {
+    featurePath?: string;
+    stepDefinitionsPath?: string;
+    pageObjectPath?: string;
+    specPath?: string;
+  };
+  featureFile?: string;
+  stepDefinitions?: string;
+  pageObject?: string;
+  specFile?: string;
+}
+
+export interface UpdateTestCaseSourceDto {
+  featureFile?: string;
+  stepDefinitions?: string;
+  pageObject?: string;
+  specFile?: string;
+}
+
 export interface StepDefinition {
   id: string;
   projectId: string;

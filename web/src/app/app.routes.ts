@@ -82,6 +82,14 @@ export const routes: Routes = [
       import('./features/test-suites/suite-detail.component').then((m) => m.SuiteDetailComponent),
   },
   {
+    path: 'projects/:projectId/suites/:suiteId/tests/:testCaseId/edit',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/test-suites/test-case-editor.component').then(
+        (m) => m.TestCaseEditorComponent,
+      ),
+  },
+  {
     path: 'users',
     canActivate: [authGuard, adminGuard],
     loadComponent: () =>

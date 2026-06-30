@@ -199,6 +199,20 @@ import { apiErrorMessage } from '../../shared/utils/api-error.util';
                       }
                     </td>
                     <td class="actions-cell">
+                      <a
+                        class="btn btn-link"
+                        [routerLink]="[
+                          '/projects',
+                          projectId,
+                          'suites',
+                          suiteId,
+                          'tests',
+                          testCase.id,
+                          'edit',
+                        ]"
+                      >
+                        Edit source
+                      </a>
                       <button class="btn btn-link" type="button" (click)="startEdit(testCase)">
                         Edit
                       </button>

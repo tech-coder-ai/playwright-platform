@@ -3,7 +3,9 @@ import { HttpClient } from '@angular/common/http';
 import {
   CreateTestCaseDto,
   TestCase,
+  TestCaseSource,
   UpdateTestCaseDto,
+  UpdateTestCaseSourceDto,
 } from '@playwright-platform/shared-types';
 
 @Injectable({ providedIn: 'root' })
@@ -16,6 +18,18 @@ export class TestCasesService {
 
   create(suiteId: string, dto: CreateTestCaseDto) {
     return this.http.post<TestCase>(`/api/test-suites/${suiteId}/test-cases`, dto);
+  }
+
+  get(id: string) {
+    return this.http.get<TestCase>(`/api/test-cases/${id}`);
+  }
+
+  getSource(id: string) {
+    return this.http.get<TestCaseSource>(`/api/test-cases/${id}/source`);
+  }
+
+  updateSource(id: string, dto: UpdateTestCaseSourceDto) {
+    return this.http.put<TestCaseSource>(`/api/test-cases/${id}/source`, dto);
   }
 
   update(id: string, dto: UpdateTestCaseDto) {

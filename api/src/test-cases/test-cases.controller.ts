@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put } from '@nestjs/common';
+import type { UpdateTestCaseSourceDto } from '@playwright-platform/shared-types';
 import { TestCasesService } from './test-cases.service';
 
 @Controller()
@@ -27,6 +28,16 @@ export class TestCasesController {
     },
   ) {
     return this.testCasesService.create(suiteId, body);
+  }
+
+  @Get('test-cases/:id/source')
+  getSource(@Param('id') id: string) {
+    return this.testCasesService.getSource(id);
+  }
+
+  @Put('test-cases/:id/source')
+  updateSource(@Param('id') id: string, @Body() body: UpdateTestCaseSourceDto) {
+    return this.testCasesService.updateSource(id, body);
   }
 
   @Patch('test-cases/:id')
