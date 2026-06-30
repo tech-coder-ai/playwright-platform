@@ -1,13 +1,27 @@
 {
-  "name": "@playwright-platform/source",
+  "name": "playwright-platform",
   "version": "0.0.0",
-  "license": "MIT",
-  "scripts": {},
   "private": true,
-  "dependencies": {},
-  "devDependencies": {
-    "@nx/js": "23.0.1",
-    "@nx/workspace": "23.0.1",
-    "nx": "23.0.1"
+  "workspaces": [
+    "web",
+    "api",
+    "shared-types",
+    "codegen-engine",
+    "tests"
+  ],
+  "scripts": {
+    "start:web": "npm run start --workspace=web",
+    "start:api": "npm run start:dev --workspace=api",
+    "build:web": "npm run build --workspace=web",
+    "build:api": "npm run build --workspace=api",
+    "build": "npm run build:shared-types && npm run build:codegen-engine && npm run build:api && npm run build:web",
+    "build:shared-types": "npm run build --workspace=shared-types",
+    "build:codegen-engine": "npm run build --workspace=codegen-engine",
+    "db:generate": "npm run db:generate --workspace=api",
+    "db:migrate": "npm run db:migrate --workspace=api",
+    "db:studio": "npm run db:studio --workspace=api",
+    "test:playwright": "npm run test --workspace=tests",
+    "test:playwright:install": "npm exec --workspace=tests playwright install chromium",
+    "prompt:test": "npm run build --workspace=codegen-engine && npm run prompt:test --workspace=codegen-engine"
   }
 }

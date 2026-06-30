@@ -1,0 +1,16 @@
+{
+  "name": "tests",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:gherkin": "cucumber-js --config cucumber.config.js"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "^11.2.0",
+    "@playwright/test": "^1.49.0",
+    "tsx": "^4.19.3",
+    "typescript": "~5.7.2"
+  }
+}

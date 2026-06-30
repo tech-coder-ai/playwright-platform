@@ -1,0 +1,14 @@
+{
+  "name": "@playwright-platform/codegen-engine",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "prompt:test": "node dist/scripts/test-prompt.js"
+  },
+  "devDependencies": {
+    "typescript": "~5.7.2"
+  }
+}

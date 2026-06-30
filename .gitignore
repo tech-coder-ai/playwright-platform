@@ -1,14 +1,20 @@
-# See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
+# See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
-# compiled output
-dist
-tmp
-out-tsc
+# Dependencies
+node_modules/
 
-# dependencies
-node_modules
+# Build output
+dist/
+**/dist/
+tmp/
+out-tsc/
+*.tsbuildinfo
 
-# IDEs and editors
+# Angular
+.angular/
+web/.angular/
+
+# IDE
 /.idea
 .project
 .classpath
@@ -17,29 +23,44 @@ node_modules
 .settings/
 *.sublime-workspace
 
-# IDE - VSCode
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# misc
+# Logs & coverage
 /.sass-cache
 /connect.lock
 /coverage
-/libpeerconnection.log
 npm-debug.log
 yarn-error.log
-testem.log
-/typings
+*.log
 
-# System Files
+# OS
 .DS_Store
 Thumbs.db
 
-.nx/cache
-.nx/workspace-data
-.nx/migrate-runs
-.claude/worktrees
-.claude/settings.local.json
+# Local database & secrets
+data/*.sqlite
+data/*.sqlite-journal
+data/secrets.enc
+api/data/*.sqlite
+api/data/*.sqlite-journal
+
+# Test run artifacts (keep directory placeholder)
+artifacts/*
+!artifacts/.gitkeep
+
+# Playwright / Cucumber outputs
+tests/test-results/
+tests/playwright-report/
+tests/report.json
+**/playwright-output/
+
+# Environment & secrets (never commit)
+.env
+.env.*
+!.env.example
+api/.env
+**/.env.local
