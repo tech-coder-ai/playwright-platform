@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import type { UpdateProjectDto } from '@playwright-platform/shared-types';
 import { ProjectsService } from './projects.service';
 
 @Controller('projects')
@@ -21,7 +22,7 @@ export class ProjectsController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: { name?: string; description?: string }) {
+  update(@Param('id') id: string, @Body() body: UpdateProjectDto) {
     return this.projectsService.update(id, body);
   }
 

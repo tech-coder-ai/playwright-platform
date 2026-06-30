@@ -22,6 +22,10 @@ export class TestRunsService {
     return this.http.get(`/api/test-runs/${id}/log`, { responseType: 'text' });
   }
 
+  getResultLog(resultId: string) {
+    return this.http.get(`/api/test-results/${resultId}/log`, { responseType: 'text' });
+  }
+
   triggerSuiteRun(suiteId: string, dto: TriggerTestRunDto = {}) {
     return this.http.post<TestRunDetail>(`/api/test-suites/${suiteId}/test-runs`, dto);
   }

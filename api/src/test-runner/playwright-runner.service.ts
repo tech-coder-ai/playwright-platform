@@ -1,7 +1,9 @@
 import { spawn } from 'child_process';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import type { RunArtifactsConfig } from '@playwright-platform/shared-types';
 import { getRunArtifactDir, getTestsRoot } from './paths.util';
+import { buildArtifactEnvVars } from './run-artifacts.util';
 
 export interface PlaywrightRunResult {
   exitCode: number;
@@ -11,24 +13,29 @@ export interface PlaywrightRunResult {
   artifactPaths: string[];
 }
 
+export interface RunPlaywrightOptions {
+  headed?: boolean;
+  artifacts?: RunArtifactsConfig;
+}
+
 export async function runPlaywrightSpec(
   runId: string,
   specFile: string,
   env: Record<string, string>,
-  options: { headed?: boolean } = {},
+  options: RunPlaywrightOptions = {},
 ): Promise<PlaywrightRunResult> {
   const args = ['playwright', 'test', specFile, '--config=playwright.config.ts'];
   if (options.headed) {
     args.push('--headed');
   }
-  return runPlaywrightCommand(runId, specFile, args, env, options.headed);
+  return runPlaywrightCommand(runId, specFile, args, env, options);
 }
 
 export async function runGherkinFeature(
   runId: string,
   featureFile: string,
   env: Record<string, string>,
-  options: { headed?: boolean } = {},
+  options: RunPlaywrightOptions = {},
 ): Promise<PlaywrightRunResult> {
   const resolvedFeature = resolveFeaturePath(featureFile);
   const slug = path.basename(resolvedFeature, '.feature');
@@ -48,7 +55,7 @@ export async function runGherkinFeature(
     'cucumber.config.js',
     '--require',
     stepFile,
-  ], env, options.headed);
+  ], env, options);
 }
 
 async function runPlaywrightCommand(
@@ -56,8 +63,10 @@ async function runPlaywrightCommand(
   caseLabel: string,
   args: string[],
   env: Record<string, string>,
-  headed = false,
+  options: RunPlaywrightOptions = {},
 ): Promise<PlaywrightRunResult> {
+  const headed = options.headed ?? false;
+  const artifacts = options.artifacts;
   const runDir = getRunArtifactDir(runId);
   const caseDir = path.join(runDir, sanitizeDirName(caseLabel));
   await fs.mkdir(caseDir, { recursive: true });
@@ -65,10 +74,17 @@ async function runPlaywrightCommand(
   const logPath = path.join(caseDir, 'output.log');
   const reportPath = path.join(caseDir, 'report.json');
   const outputDir = path.join(caseDir, 'playwright-output');
+  const videoDir = path.join(caseDir, 'videos');
+  const screenshotDir = path.join(caseDir, 'screenshots');
+
+  const artifactEnv = artifacts
+    ? buildArtifactEnvVars(artifacts, { videoDir, screenshotDir })
+    : {};
 
   const runEnv = {
     ...process.env,
     ...env,
+    ...artifactEnv,
     PW_OUTPUT_DIR: outputDir,
     PW_JSON_REPORT: reportPath,
     CUCUMBER_JSON_REPORT: reportPath,
@@ -152,6 +168,18 @@ function isArtifactFile(name: string): boolean {
 
 function sanitizeDirName(specFile: string): string {
   return specFile.replace(/[^a-zA-Z0-9._-]+/g, '_');
+}
+
+export function getCaseOutputLogPath(runId: string, caseLabel: string): string {
+  return path.join(getRunArtifactDir(runId), sanitizeDirName(caseLabel), 'output.log');
+}
+
+export async function readCaseOutputLog(runId: string, caseLabel: string): Promise<string | null> {
+  try {
+    return await fs.readFile(getCaseOutputLogPath(runId, caseLabel), 'utf8');
+  } catch {
+    return null;
+  }
 }
 
 export async function appendRunLog(runId: string, text: string): Promise<string> {

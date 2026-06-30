@@ -13,6 +13,7 @@ import { RunQueueService } from './run-queue.service';
 import {
   appendRunLog,
   readRunLog,
+  readCaseOutputLog,
   resolveArtifactPath,
   runGherkinFeature,
   runPlaywrightSpec,
@@ -21,6 +22,8 @@ import { parseCucumberReport } from './cucumber-report.util';
 import { parsePlaywrightReport } from './report.util';
 import { toTestRunDetail } from './test-runs.mapper';
 import { extractRunnerError, validateTestCaseFiles } from './test-case-files.util';
+import { parseRunArtifactsConfig } from './run-artifacts.util';
+import { extractStepsFromReport } from './step-report.util';
 
 @Injectable()
 export class TestRunsService {
@@ -137,6 +140,22 @@ export class TestRunsService {
     return readRunLog(id);
   }
 
+  async getResultLog(resultId: string) {
+    const result = await this.prisma.testResult.findUnique({
+      where: { id: resultId },
+      include: { testCase: { select: { filePath: true, type: true } } },
+    });
+    if (!result) {
+      throw new NotFoundException(`Test result ${resultId} not found`);
+    }
+
+    const log = await readCaseOutputLog(result.runId, result.testCase.filePath);
+    if (log === null) {
+      throw new NotFoundException('Case log not available yet');
+    }
+    return log;
+  }
+
   async getArtifact(id: string, relativePath: string) {
     await this.ensureRunExists(id);
     const fullPath = resolveArtifactPath(id, relativePath);
@@ -157,9 +176,12 @@ export class TestRunsService {
       include: {
         environment: true,
         testResults: { include: { testCase: true } },
+        project: { select: { runArtifactsConfig: true } },
       },
     });
     if (!run) return;
+
+    const artifactsConfig = parseRunArtifactsConfig(run.project.runArtifactsConfig);
 
     const logPath = await appendRunLog(runId, `Starting run ${runId}\n`);
     await this.prisma.testRun.update({
@@ -205,12 +227,13 @@ export class TestRunsService {
 
         const runnerResult =
           testCase.type === 'gherkin'
-            ? await runGherkinFeature(runId, testCase.filePath, baseEnv, { headed })
-            : await runPlaywrightSpec(runId, testCase.filePath, baseEnv, { headed });
+            ? await runGherkinFeature(runId, testCase.filePath, baseEnv, { headed, artifacts: artifactsConfig })
+            : await runPlaywrightSpec(runId, testCase.filePath, baseEnv, { headed, artifacts: artifactsConfig });
         await appendRunLog(runId, runnerResult.log);
 
         let passed = runnerResult.exitCode === 0;
         let errorMessage: string | undefined;
+        let stepsJson = '[]';
 
         try {
           const reportRaw = await fs.readFile(runnerResult.reportPath, 'utf8');
@@ -221,6 +244,7 @@ export class TestRunsService {
               : parsePlaywrightReport(report);
           passed = parsed.passed;
           errorMessage = parsed.errorMessage;
+          stepsJson = JSON.stringify(extractStepsFromReport(testCase.type, report));
         } catch {
           if (runnerResult.exitCode !== 0) {
             passed = false;
@@ -240,6 +264,7 @@ export class TestRunsService {
             durationMs: Date.now() - started,
             errorMessage: passed ? null : errorMessage,
             artifactPaths: stringifyJsonArray(runnerResult.artifactPaths),
+            stepsJson,
           },
         });
 

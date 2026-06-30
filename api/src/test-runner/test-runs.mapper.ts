@@ -1,4 +1,14 @@
 import { parseJsonArray } from '../common/json-array.util';
+import type { TestStepDetail } from '@playwright-platform/shared-types';
+
+function parseStepsJson(raw: string): TestStepDetail[] {
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 type RunRecord = {
   id: string;
@@ -22,6 +32,7 @@ type RunRecord = {
     durationMs: number | null;
     errorMessage: string | null;
     artifactPaths: string;
+    stepsJson: string;
     createdAt: Date;
     testCase: { name: string; filePath: string; type: string };
   }>;
@@ -53,6 +64,7 @@ export function toTestRunDetail(run: RunRecord) {
       durationMs: result.durationMs ?? undefined,
       errorMessage: result.errorMessage ?? undefined,
       artifactPaths: parseJsonArray(result.artifactPaths),
+      steps: parseStepsJson(result.stepsJson),
       createdAt: result.createdAt.toISOString(),
     })),
   };

@@ -2,13 +2,13 @@ import { DatePipe } from '@angular/common';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Environment, SecretMeta } from '@playwright-platform/shared-types';
+import { Environment, RunArtifactsConfig, SecretMeta } from '@playwright-platform/shared-types';
 import { EnvironmentsService } from '../../core/services/environments.service';
 import { SecretsService } from '../../core/services/secrets.service';
 import { ProjectsService } from '../../core/services/projects.service';
 import { apiErrorMessage } from '../../shared/utils/api-error.util';
 
-type SettingsTab = 'environments' | 'secrets';
+type SettingsTab = 'environments' | 'secrets' | 'capture';
 
 @Component({
   selector: 'app-project-settings',
@@ -29,6 +29,13 @@ type SettingsTab = 'environments' | 'secrets';
           (click)="activeTab.set('secrets')"
         >
           Secrets
+        </button>
+        <button
+          type="button"
+          [class.active]="activeTab() === 'capture'"
+          (click)="activeTab.set('capture')"
+        >
+          Run capture
         </button>
       </aside>
 
@@ -219,6 +226,51 @@ type SettingsTab = 'environments' | 'secrets';
             }
           </section>
         }
+
+        @if (activeTab() === 'capture') {
+          <section class="card flat">
+            <div class="panel-header">
+              <div>
+                <h3>Run capture</h3>
+                <p class="panel-desc">
+                  Control screenshots and video saved during suite runs. Applies to all runs in this project.
+                </p>
+              </div>
+            </div>
+
+            <form class="form capture-form" [formGroup]="captureForm" (ngSubmit)="saveCaptureSettings()">
+              <label>
+                Screenshots
+                <select formControlName="screenshot">
+                  <option value="off">Off</option>
+                  <option value="on-failure">On failure only</option>
+                  <option value="on">Every step (Gherkin) / every action (Playwright)</option>
+                </select>
+              </label>
+              <label>
+                Video
+                <select formControlName="video">
+                  <option value="off">Off</option>
+                  <option value="on-failure">On failure only</option>
+                  <option value="on">Always record</option>
+                </select>
+              </label>
+
+              @if (captureError()) {
+                <p class="error">{{ captureError() }}</p>
+              }
+              @if (captureMessage()) {
+                <p class="success">{{ captureMessage() }}</p>
+              }
+
+              <div class="form-actions">
+                <button class="btn btn-primary" type="submit" [disabled]="captureForm.invalid || captureSaving()">
+                  {{ captureSaving() ? 'Saving…' : 'Save capture settings' }}
+                </button>
+              </div>
+            </form>
+          </section>
+        }
       </div>
     </div>
   `,
@@ -310,6 +362,16 @@ type SettingsTab = 'environments' | 'secrets';
     code {
       font-size: 0.8125rem;
     }
+
+    .capture-form {
+      max-width: 28rem;
+    }
+
+    .success {
+      color: #15803d;
+      font-size: 0.875rem;
+      margin: 0;
+    }
   `,
 })
 export class ProjectSettingsComponent implements OnInit {
@@ -327,8 +389,11 @@ export class ProjectSettingsComponent implements OnInit {
   readonly showSecretCreate = signal(false);
   readonly envSaving = signal(false);
   readonly secretSaving = signal(false);
+  readonly captureSaving = signal(false);
   readonly envError = signal<string | null>(null);
   readonly secretError = signal<string | null>(null);
+  readonly captureError = signal<string | null>(null);
+  readonly captureMessage = signal<string | null>(null);
   readonly editingEnvId = signal<string | null>(null);
   readonly editingSecretId = signal<string | null>(null);
 
@@ -354,10 +419,47 @@ export class ProjectSettingsComponent implements OnInit {
     value: [''],
   });
 
+  readonly captureForm = this.fb.nonNullable.group({
+    screenshot: ['on-failure' as RunArtifactsConfig['screenshot'], Validators.required],
+    video: ['on-failure' as RunArtifactsConfig['video'], Validators.required],
+  });
+
   ngOnInit() {
     this.projectId = this.route.parent?.snapshot.paramMap.get('projectId') ?? '';
     this.loadEnvironments();
     this.loadSecrets();
+    this.loadCaptureSettings();
+  }
+
+  loadCaptureSettings() {
+    this.projectsService.get(this.projectId).subscribe({
+      next: (project) => {
+        const config = project.runArtifactsConfig ?? { screenshot: 'on-failure', video: 'on-failure' };
+        this.captureForm.setValue({
+          screenshot: config.screenshot,
+          video: config.video,
+        });
+      },
+    });
+  }
+
+  saveCaptureSettings() {
+    if (this.captureForm.invalid) return;
+    this.captureSaving.set(true);
+    this.captureError.set(null);
+    this.captureMessage.set(null);
+    this.projectsService
+      .update(this.projectId, { runArtifactsConfig: this.captureForm.getRawValue() })
+      .subscribe({
+        next: () => {
+          this.captureSaving.set(false);
+          this.captureMessage.set('Capture settings saved.');
+        },
+        error: (err) => {
+          this.captureError.set(apiErrorMessage(err, 'Failed to save capture settings.'));
+          this.captureSaving.set(false);
+        },
+      });
   }
 
   loadEnvironments() {

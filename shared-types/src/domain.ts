@@ -12,6 +12,7 @@ export interface Project {
   id: string;
   name: string;
   description?: string;
+  runArtifactsConfig?: import('./run-artifacts').RunArtifactsConfig;
   createdAt: string;
   updatedAt: string;
 }
@@ -29,6 +30,7 @@ export interface CreateProjectDto {
 export interface UpdateProjectDto {
   name?: string;
   description?: string;
+  runArtifactsConfig?: import('./run-artifacts').RunArtifactsConfig;
 }
 
 export interface Environment {
@@ -221,6 +223,7 @@ export interface TestResultDetail extends TestResult {
   testCaseName: string;
   testCaseFilePath: string;
   testCaseType: TestCaseType;
+  steps: import('./run-artifacts').TestStepDetail[];
 }
 
 export interface TestRunDetail extends TestRun {

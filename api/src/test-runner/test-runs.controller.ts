@@ -37,6 +37,12 @@ export class TestRunsController {
     return log;
   }
 
+  @Get('test-results/:resultId/log')
+  @Header('Content-Type', 'text/plain; charset=utf-8')
+  async getResultLog(@Param('resultId') resultId: string) {
+    return this.testRunsService.getResultLog(resultId);
+  }
+
   @Get('test-runs/:id/artifacts')
   async getArtifact(
     @Param('id') id: string,

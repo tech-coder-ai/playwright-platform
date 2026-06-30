@@ -8,11 +8,12 @@ datasource db {
 }
 
 model Project {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  name               String
+  description        String?
+  runArtifactsConfig String   @default("{\"screenshot\":\"on-failure\",\"video\":\"on-failure\"}")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   environments     Environment[]
   testSuites       TestSuite[]
@@ -161,6 +162,7 @@ model TestResult {
   durationMs    Int?
   errorMessage  String?
   artifactPaths String   @default("[]")
+  stepsJson     String   @default("[]")
   createdAt     DateTime @default(now())
 
   run      TestRun  @relation(fields: [runId], references: [id], onDelete: Cascade)

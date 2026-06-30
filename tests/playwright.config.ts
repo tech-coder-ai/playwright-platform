@@ -1,5 +1,19 @@
 import { defineConfig } from '@playwright/test';
 
+function screenshotMode(): 'off' | 'on' | 'only-on-failure' {
+  const mode = process.env['PW_SCREENSHOT'] ?? 'on-failure';
+  if (mode === 'on') return 'on';
+  if (mode === 'off') return 'off';
+  return 'only-on-failure';
+}
+
+function videoMode(): 'off' | 'on' | 'retain-on-failure' {
+  const mode = process.env['PW_VIDEO'] ?? 'on-failure';
+  if (mode === 'on') return 'on';
+  if (mode === 'off') return 'off';
+  return 'retain-on-failure';
+}
+
 export default defineConfig({
   testDir: '.',
   fullyParallel: false,
@@ -18,7 +32,7 @@ export default defineConfig({
       slowMo: process.env['PW_HEADLESS'] === 'false' ? 250 : 0,
     },
     trace: 'retain-on-failure',
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    screenshot: screenshotMode(),
+    video: videoMode(),
   },
 });
