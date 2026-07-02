@@ -1,17 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 import { ensureProjectExists } from '../common/ensure-exists.util';
 import { getTestsRoot } from '../test-runner/paths.util';
 
 @Injectable()
 export class PageObjectsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: DatabaseService) {}
 
   async findByProject(projectId: string) {
-    await ensureProjectExists(this.prisma, projectId);
-    const pageObjects = await this.prisma.pageObject.findMany({
+    await ensureProjectExists(this.db, projectId);
+    const pageObjects = await this.db.pageObject.findMany({
       where: { projectId },
       orderBy: [{ screenName: 'asc' }, { version: 'desc' }],
     });
@@ -23,7 +23,7 @@ export class PageObjectsService {
   }
 
   async findOne(id: string) {
-    const pageObject = await this.prisma.pageObject.findUnique({ where: { id } });
+    const pageObject = await this.db.pageObject.findUnique({ where: { id } });
     if (!pageObject) {
       throw new NotFoundException(`Page object ${id} not found`);
     }
@@ -35,7 +35,7 @@ export class PageObjectsService {
   }
 
   async readContent(id: string): Promise<string> {
-    const pageObject = await this.prisma.pageObject.findUnique({ where: { id } });
+    const pageObject = await this.db.pageObject.findUnique({ where: { id } });
     if (!pageObject) {
       throw new NotFoundException(`Page object ${id} not found`);
     }
@@ -55,6 +55,6 @@ export class PageObjectsService {
     } catch {
       // File may already be missing.
     }
-    return this.prisma.pageObject.delete({ where: { id } });
+    return this.db.pageObject.delete({ where: { id } });
   }
 }

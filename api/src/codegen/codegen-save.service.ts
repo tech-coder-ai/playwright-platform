@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 import { getTestsRoot } from '../test-runner/paths.util';
 import { normalizeGeneratedContent } from '../common/normalize-generated-content.util';
 import { CodegenGenerateService } from './codegen-generate.service';
@@ -10,14 +10,14 @@ import type { SaveGeneratedTestDto, SavedGeneratedTestResult } from '@playwright
 @Injectable()
 export class CodegenSaveService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly db: DatabaseService,
     private readonly generateService: CodegenGenerateService,
   ) {}
 
   async save(projectId: string, dto: SaveGeneratedTestDto): Promise<SavedGeneratedTestResult> {
     this.generateService.validateForSave(dto);
 
-    const suite = await this.prisma.testSuite.findFirst({
+    const suite = await this.db.testSuite.findFirst({
       where: { id: dto.suiteId, projectId },
     });
     if (!suite) {
@@ -54,7 +54,7 @@ export class CodegenSaveService {
       'utf8',
     );
 
-    const testCase = await this.prisma.testCase.create({
+    const testCase = await this.db.testCase.create({
       data: {
         suiteId: dto.suiteId,
         name: dto.testCaseName.trim(),
@@ -64,7 +64,7 @@ export class CodegenSaveService {
       },
     });
 
-    const pageObject = await this.prisma.pageObject.create({
+    const pageObject = await this.db.pageObject.create({
       data: {
         projectId,
         name: `${slug}Page`,

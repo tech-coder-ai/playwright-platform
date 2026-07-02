@@ -1,16 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 import { ensureProjectExists } from '../common/ensure-exists.util';
 import { mapTestSuite } from '../common/mappers.util';
 import { stringifyJsonArray } from '../common/json-array.util';
 
 @Injectable()
 export class TestSuitesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: DatabaseService) {}
 
   async findByProject(projectId: string) {
-    await ensureProjectExists(this.prisma, projectId);
-    const suites = await this.prisma.testSuite.findMany({
+    await ensureProjectExists(this.db, projectId);
+    const suites = await this.db.testSuite.findMany({
       where: { projectId },
       orderBy: { createdAt: 'desc' },
       include: { _count: { select: { testCases: true } } },
@@ -22,7 +22,7 @@ export class TestSuitesService {
   }
 
   async findOne(id: string) {
-    const suite = await this.prisma.testSuite.findUnique({
+    const suite = await this.db.testSuite.findUnique({
       where: { id },
       include: { _count: { select: { testCases: true } } },
     });
@@ -37,8 +37,8 @@ export class TestSuitesService {
     projectId: string,
     data: { name: string; description?: string; tags?: string[] },
   ) {
-    await ensureProjectExists(this.prisma, projectId);
-    const suite = await this.prisma.testSuite.create({
+    await ensureProjectExists(this.db, projectId);
+    const suite = await this.db.testSuite.create({
       data: {
         projectId,
         name: data.name,
@@ -54,7 +54,7 @@ export class TestSuitesService {
     data: { name?: string; description?: string; tags?: string[] },
   ) {
     await this.findOne(id);
-    const suite = await this.prisma.testSuite.update({
+    const suite = await this.db.testSuite.update({
       where: { id },
       data: {
         name: data.name,
@@ -67,6 +67,6 @@ export class TestSuitesService {
 
   async remove(id: string) {
     await this.findOne(id);
-    return this.prisma.testSuite.delete({ where: { id } });
+    return this.db.testSuite.delete({ where: { id } });
   }
 }

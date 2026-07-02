@@ -7,7 +7,7 @@ import {
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import type { LoginResponse, User, UserRole } from '@playwright-platform/shared-types';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 
 export interface RequestUser {
   id: string;
@@ -19,7 +19,7 @@ export interface RequestUser {
 export class AuthService implements OnModuleInit {
   private readonly logger = new Logger(AuthService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: DatabaseService) {}
 
   async onModuleInit() {
     if (!this.isAuthEnabled()) {
@@ -27,7 +27,7 @@ export class AuthService implements OnModuleInit {
       return;
     }
 
-    const count = await this.prisma.user.count();
+    const count = await this.db.user.count();
     if (count > 0) return;
 
     const email = process.env['ADMIN_EMAIL'];
@@ -48,7 +48,7 @@ export class AuthService implements OnModuleInit {
   }
 
   async login(email: string, password: string): Promise<LoginResponse> {
-    const user = await this.prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+    const user = await this.db.user.findUnique({ where: { email: email.trim().toLowerCase() } });
     if (!user) {
       throw new UnauthorizedException('Invalid email or password');
     }
@@ -77,7 +77,7 @@ export class AuthService implements OnModuleInit {
   async createUser(email: string, password: string, role: UserRole): Promise<User> {
     const normalizedEmail = email.trim().toLowerCase();
     const passwordHash = await bcrypt.hash(password, 10);
-    const user = await this.prisma.user.create({
+    const user = await this.db.user.create({
       data: { email: normalizedEmail, passwordHash, role },
     });
     return this.toUser(user);

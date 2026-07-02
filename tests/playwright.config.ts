@@ -1,4 +1,5 @@
 import { defineConfig } from '@playwright/test';
+import { getBrowserLaunchOptions } from './support/browser-env';
 
 function screenshotMode(): 'off' | 'on' | 'only-on-failure' {
   const mode = process.env['PW_SCREENSHOT'] ?? 'on-failure';
@@ -28,9 +29,9 @@ export default defineConfig({
   use: {
     baseURL: process.env['BASE_URL'] ?? 'http://localhost:4200',
     headless: process.env['PW_HEADLESS'] !== 'false',
-    launchOptions: {
+    launchOptions: getBrowserLaunchOptions({
       slowMo: process.env['PW_HEADLESS'] === 'false' ? 250 : 0,
-    },
+    }),
     trace: 'retain-on-failure',
     screenshot: screenshotMode(),
     video: videoMode(),

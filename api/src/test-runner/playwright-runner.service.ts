@@ -4,6 +4,7 @@ import * as path from 'path';
 import type { RunArtifactsConfig } from '@playwright-platform/shared-types';
 import { getRunArtifactDir, getTestsRoot } from './paths.util';
 import { buildArtifactEnvVars } from './run-artifacts.util';
+import { buildPlaywrightBrowserEnv } from '../common/browser-env.util';
 
 export interface PlaywrightRunResult {
   exitCode: number;
@@ -85,6 +86,7 @@ async function runPlaywrightCommand(
     ...process.env,
     ...env,
     ...artifactEnv,
+    ...buildPlaywrightBrowserEnv(),
     PW_OUTPUT_DIR: outputDir,
     PW_JSON_REPORT: reportPath,
     CUCUMBER_JSON_REPORT: reportPath,

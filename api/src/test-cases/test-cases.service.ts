@@ -6,7 +6,7 @@ import {
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { TestCaseSource, UpdateTestCaseSourceDto } from '@playwright-platform/shared-types';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 import { normalizeGeneratedContent } from '../common/normalize-generated-content.util';
 import { getTestsRoot } from '../test-runner/paths.util';
 import { resolveGherkinPaths } from '../test-runner/test-case-paths.util';
@@ -16,11 +16,11 @@ import { stringifyJsonArray } from '../common/json-array.util';
 
 @Injectable()
 export class TestCasesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: DatabaseService) {}
 
   async findBySuite(suiteId: string) {
-    await ensureSuiteExists(this.prisma, suiteId);
-    const cases = await this.prisma.testCase.findMany({
+    await ensureSuiteExists(this.db, suiteId);
+    const cases = await this.db.testCase.findMany({
       where: { suiteId },
       orderBy: { createdAt: 'desc' },
     });
@@ -28,7 +28,7 @@ export class TestCasesService {
   }
 
   async findOne(id: string) {
-    const testCase = await this.prisma.testCase.findUnique({ where: { id } });
+    const testCase = await this.db.testCase.findUnique({ where: { id } });
     if (!testCase) {
       throw new NotFoundException(`Test case ${id} not found`);
     }
@@ -36,7 +36,7 @@ export class TestCasesService {
   }
 
   async getSource(id: string): Promise<TestCaseSource> {
-    const testCase = await this.prisma.testCase.findUnique({
+    const testCase = await this.db.testCase.findUnique({
       where: { id },
       include: { suite: { select: { projectId: true } } },
     });
@@ -80,7 +80,7 @@ export class TestCasesService {
   }
 
   async updateSource(id: string, dto: UpdateTestCaseSourceDto): Promise<TestCaseSource> {
-    const testCase = await this.prisma.testCase.findUnique({
+    const testCase = await this.db.testCase.findUnique({
       where: { id },
       include: { suite: { select: { projectId: true } } },
     });
@@ -104,20 +104,20 @@ export class TestCasesService {
         writeTestFile(testsRoot, paths.pageObjectPath, dto.pageObject),
       ]);
 
-      const pageObject = await this.prisma.pageObject.findFirst({
+      const pageObject = await this.db.pageObject.findFirst({
         where: {
           projectId: testCase.suite.projectId,
           classFilePath: paths.pageObjectPath,
         },
       });
       if (pageObject) {
-        await this.prisma.pageObject.update({
+        await this.db.pageObject.update({
           where: { id: pageObject.id },
           data: { version: pageObject.version + 1 },
         });
       }
 
-      await this.prisma.testCase.update({
+      await this.db.testCase.update({
         where: { id },
         data: { updatedAt: new Date() },
       });
@@ -132,7 +132,7 @@ export class TestCasesService {
     const specPath = testCase.filePath.replace(/\\/g, '/');
     await writeTestFile(testsRoot, specPath, dto.specFile);
 
-    await this.prisma.testCase.update({
+    await this.db.testCase.update({
       where: { id },
       data: { updatedAt: new Date() },
     });
@@ -149,8 +149,8 @@ export class TestCasesService {
       tags?: string[];
     },
   ) {
-    await ensureSuiteExists(this.prisma, suiteId);
-    const testCase = await this.prisma.testCase.create({
+    await ensureSuiteExists(this.db, suiteId);
+    const testCase = await this.db.testCase.create({
       data: {
         suiteId,
         name: data.name,
@@ -172,7 +172,7 @@ export class TestCasesService {
     },
   ) {
     await this.findOne(id);
-    const testCase = await this.prisma.testCase.update({
+    const testCase = await this.db.testCase.update({
       where: { id },
       data: {
         name: data.name,
@@ -186,7 +186,7 @@ export class TestCasesService {
 
   async remove(id: string) {
     await this.findOne(id);
-    return this.prisma.testCase.delete({ where: { id } });
+    return this.db.testCase.delete({ where: { id } });
   }
 }
 

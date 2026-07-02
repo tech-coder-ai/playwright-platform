@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import * as fs from 'fs/promises';
 import type { ScheduleNotificationConfig } from '@playwright-platform/shared-types';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 import { SecretsService } from '../secrets/secrets.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { stringifyJsonArray } from '../common/json-array.util';
@@ -28,14 +28,14 @@ import { extractStepsFromReport } from './step-report.util';
 @Injectable()
 export class TestRunsService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly db: DatabaseService,
     private readonly secretsService: SecretsService,
     private readonly runQueue: RunQueueService,
     private readonly notificationsService: NotificationsService,
   ) {}
 
   findByProject(projectId: string) {
-    return this.prisma.testRun
+    return this.db.testRun
       .findMany({
         where: { projectId },
         orderBy: { createdAt: 'desc' },
@@ -65,7 +65,7 @@ export class TestRunsService {
   }
 
   async findOne(id: string) {
-    const run = await this.prisma.testRun.findUnique({
+    const run = await this.db.testRun.findUnique({
       where: { id },
       include: {
         suite: { select: { name: true } },
@@ -91,7 +91,7 @@ export class TestRunsService {
       headed?: boolean;
     } = {},
   ) {
-    const suite = await this.prisma.testSuite.findUnique({
+    const suite = await this.db.testSuite.findUnique({
       where: { id: suiteId },
       include: { testCases: { orderBy: { createdAt: 'asc' } } },
     });
@@ -103,7 +103,7 @@ export class TestRunsService {
     }
 
     if (options.environmentId) {
-      const environment = await this.prisma.environment.findFirst({
+      const environment = await this.db.environment.findFirst({
         where: { id: options.environmentId, projectId: suite.projectId },
       });
       if (!environment) {
@@ -111,7 +111,7 @@ export class TestRunsService {
       }
     }
 
-    const run = await this.prisma.testRun.create({
+    const run = await this.db.testRun.create({
       data: {
         projectId: suite.projectId,
         suiteId: suite.id,
@@ -123,8 +123,8 @@ export class TestRunsService {
       },
     });
 
-    await this.prisma.testResult.createMany({
-      data: suite.testCases.map((testCase) => ({
+    await this.db.testResult.createMany({
+      data: suite.testCases.map((testCase: { id: string }) => ({
         runId: run.id,
         testCaseId: testCase.id,
         status: 'pending',
@@ -141,7 +141,7 @@ export class TestRunsService {
   }
 
   async getResultLog(resultId: string) {
-    const result = await this.prisma.testResult.findUnique({
+    const result = await this.db.testResult.findUnique({
       where: { id: resultId },
       include: { testCase: { select: { filePath: true, type: true } } },
     });
@@ -171,7 +171,7 @@ export class TestRunsService {
   }
 
   private async executeRun(runId: string) {
-    const run = await this.prisma.testRun.findUnique({
+    const run = await this.db.testRun.findUnique({
       where: { id: runId },
       include: {
         environment: true,
@@ -184,7 +184,7 @@ export class TestRunsService {
     const artifactsConfig = parseRunArtifactsConfig(run.project.runArtifactsConfig);
 
     const logPath = await appendRunLog(runId, `Starting run ${runId}\n`);
-    await this.prisma.testRun.update({
+    await this.db.testRun.update({
       where: { id: runId },
       data: { status: 'running', startedAt: new Date(), logPath },
     });
@@ -214,7 +214,7 @@ export class TestRunsService {
         if (missingFile) {
           await appendRunLog(runId, `Preflight failed: ${missingFile}\n`);
           runFailed = true;
-          await this.prisma.testResult.update({
+          await this.db.testResult.update({
             where: { id: result.id },
             data: {
               status: 'failed',
@@ -257,7 +257,7 @@ export class TestRunsService {
           }
         }
 
-        await this.prisma.testResult.update({
+        await this.db.testResult.update({
           where: { id: result.id },
           data: {
             status: passed ? 'passed' : 'failed',
@@ -273,7 +273,7 @@ export class TestRunsService {
         runFailed = true;
         const message = error instanceof Error ? error.message : 'Unknown runner error';
         await appendRunLog(runId, `Error: ${message}\n`);
-        await this.prisma.testResult.update({
+        await this.db.testResult.update({
           where: { id: result.id },
           data: {
             status: 'failed',
@@ -286,7 +286,7 @@ export class TestRunsService {
 
     const finalStatus = runFailed ? 'failed' : 'passed';
     await appendRunLog(runId, `\nRun finished: ${finalStatus}\n`);
-    await this.prisma.testRun.update({
+    await this.db.testRun.update({
       where: { id: runId },
       data: { status: finalStatus, endedAt: new Date() },
     });
@@ -297,7 +297,7 @@ export class TestRunsService {
   }
 
   private async sendScheduleFailureNotification(runId: string) {
-    const run = await this.prisma.testRun.findUnique({
+    const run = await this.db.testRun.findUnique({
       where: { id: runId },
       include: {
         project: { select: { name: true } },
@@ -325,7 +325,7 @@ export class TestRunsService {
       suiteName: run.suite?.name,
       runId: run.id,
       projectId: run.projectId,
-      failedTests: run.testResults.map((result) => ({
+      failedTests: run.testResults.map((result: { testCase: { name: string }; errorMessage?: string | null }) => ({
         name: result.testCase.name,
         errorMessage: result.errorMessage ?? undefined,
       })),
@@ -334,7 +334,7 @@ export class TestRunsService {
   }
 
   private async ensureRunExists(id: string) {
-    const run = await this.prisma.testRun.findUnique({ where: { id } });
+    const run = await this.db.testRun.findUnique({ where: { id } });
     if (!run) {
       throw new NotFoundException(`Test run ${id} not found`);
     }

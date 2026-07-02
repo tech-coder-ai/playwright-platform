@@ -8,9 +8,10 @@ import {
 import { spawn, type ChildProcess } from 'child_process';
 import * as fs from 'fs/promises';
 import { randomUUID } from 'crypto';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 import { ensureProjectExists } from '../common/ensure-exists.util';
 import { getTestsRoot } from '../test-runner/paths.util';
+import { buildPlaywrightBrowserEnv } from '../common/browser-env.util';
 import {
   getCodegenOutputPath,
   getCodegenRelativeOutputPath,
@@ -42,7 +43,7 @@ export class CodegenService implements OnModuleDestroy {
   private outputHandler?: (sessionId: string, content: string) => void;
   private statusHandler?: (sessionId: string, status: CodegenSessionStatus, errorMessage?: string) => void;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: DatabaseService) {}
 
   onModuleDestroy() {
     for (const session of this.sessions.values()) {
@@ -65,12 +66,12 @@ export class CodegenService implements OnModuleDestroy {
     url: string,
     options: { mode?: CodegenSessionMode; targetPageObjectId?: string } = {},
   ): Promise<CodegenSessionMeta> {
-    await ensureProjectExists(this.prisma, projectId);
+    await ensureProjectExists(this.db, projectId);
     const normalizedUrl = this.normalizeUrl(url);
     const mode = options.mode ?? 'test';
 
     if (options.targetPageObjectId) {
-      const existing = await this.prisma.pageObject.findFirst({
+      const existing = await this.db.pageObject.findFirst({
         where: { id: options.targetPageObjectId, projectId },
       });
       if (!existing) {
@@ -113,7 +114,7 @@ export class CodegenService implements OnModuleDestroy {
         ],
         {
           cwd: getTestsRoot(),
-          env: process.env,
+          env: { ...process.env, ...buildPlaywrightBrowserEnv() },
           stdio: ['ignore', 'pipe', 'pipe'],
         },
       );

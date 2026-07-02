@@ -9,6 +9,7 @@ import {
   IWorldOptions,
 } from '@cucumber/cucumber';
 import { chromium, Browser, BrowserContext, Page } from '@playwright/test';
+import { getBrowserLaunchOptions } from './browser-env';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -51,11 +52,13 @@ function screenshotDir(): string | undefined {
 Before(async function () {
   const headless = process.env['PW_HEADLESS'] !== 'false';
   this.stepIndex = 0;
-  this.browser = await chromium.launch({
-    headless,
-    slowMo: headless ? 0 : 250,
-    args: ['--disable-http2'],
-  });
+  this.browser = await chromium.launch(
+    getBrowserLaunchOptions({
+      headless,
+      slowMo: headless ? 0 : 250,
+      args: ['--disable-http2'],
+    }),
+  );
 
   const contextOptions: Parameters<Browser['newContext']>[0] = {
     userAgent:

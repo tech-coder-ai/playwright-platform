@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 import { parseJsonArray } from '../common/json-array.util';
 import type {
   DashboardData,
@@ -15,7 +15,7 @@ const COMPLETED_STATUSES = ['passed', 'failed'] as const;
 
 @Injectable()
 export class DashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: DatabaseService) {}
 
   async getDashboard(projectId?: string, runLimit = 30): Promise<DashboardData> {
     const runWhere = {
@@ -23,7 +23,7 @@ export class DashboardService {
       status: { in: [...COMPLETED_STATUSES] },
     };
 
-    const completedRuns = await this.prisma.testRun.findMany({
+    const completedRuns = await this.db.testRun.findMany({
       where: runWhere,
       orderBy: { createdAt: 'desc' },
       take: runLimit,
@@ -119,7 +119,7 @@ export class DashboardService {
     projectId: string | undefined,
     runLimit: number,
   ): Promise<SuiteHealthRow[]> {
-    const suites = await this.prisma.testSuite.findMany({
+    const suites = await this.db.testSuite.findMany({
       where: projectId ? { projectId } : {},
       include: { project: { select: { name: true } } },
       orderBy: { name: 'asc' },
@@ -128,7 +128,7 @@ export class DashboardService {
     const rows: SuiteHealthRow[] = [];
 
     for (const suite of suites) {
-      const runs = await this.prisma.testRun.findMany({
+      const runs = await this.db.testRun.findMany({
         where: {
           suiteId: suite.id,
           status: { in: [...COMPLETED_STATUSES] },
@@ -160,7 +160,7 @@ export class DashboardService {
     projectId: string | undefined,
     runLimit: number,
   ): Promise<FlakyTestRow[]> {
-    const recentRuns = await this.prisma.testRun.findMany({
+    const recentRuns = await this.db.testRun.findMany({
       where: {
         ...(projectId ? { projectId } : {}),
         status: { in: [...COMPLETED_STATUSES] },
@@ -172,7 +172,7 @@ export class DashboardService {
 
     if (recentRuns.length === 0) return [];
 
-    const results = await this.prisma.testResult.findMany({
+    const results = await this.db.testResult.findMany({
       where: {
         runId: { in: recentRuns.map((r) => r.id) },
         status: { in: ['passed', 'failed'] },
@@ -209,7 +209,7 @@ export class DashboardService {
         suiteName: result.testCase.suite.name,
         projectId: result.testCase.suite.projectId,
         projectName: result.testCase.suite.project.name,
-        outcomes: [],
+        outcomes: [] as Array<{ status: 'passed' | 'failed'; at: Date }>,
       };
       entry.outcomes.push({
         status: result.status as 'passed' | 'failed',
@@ -262,7 +262,7 @@ export class DashboardService {
     projectId: string | undefined,
     limit: number,
   ): Promise<RecentFailureRow[]> {
-    const failures = await this.prisma.testResult.findMany({
+    const failures = await this.db.testResult.findMany({
       where: {
         status: 'failed',
         run: {

@@ -1,0 +1,127 @@
+-- Playwright Platform schema for Oracle (run once as DBA or app owner)
+-- Tables use PP_ prefix; columns are snake_case and mapped to camelCase in the API.
+
+CREATE TABLE pp_project (
+  id VARCHAR2(64) PRIMARY KEY,
+  name VARCHAR2(255) NOT NULL,
+  description CLOB,
+  run_artifacts_config CLOB DEFAULT '{"screenshot":"on-failure","video":"on-failure"}' NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE TABLE pp_environment (
+  id VARCHAR2(64) PRIMARY KEY,
+  project_id VARCHAR2(64) NOT NULL REFERENCES pp_project(id) ON DELETE CASCADE,
+  name VARCHAR2(255) NOT NULL,
+  base_url VARCHAR2(2048) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  CONSTRAINT pp_environment_project_name_uq UNIQUE (project_id, name)
+);
+
+CREATE TABLE pp_test_suite (
+  id VARCHAR2(64) PRIMARY KEY,
+  project_id VARCHAR2(64) NOT NULL REFERENCES pp_project(id) ON DELETE CASCADE,
+  name VARCHAR2(255) NOT NULL,
+  description CLOB,
+  tags CLOB DEFAULT '[]' NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE TABLE pp_test_case (
+  id VARCHAR2(64) PRIMARY KEY,
+  suite_id VARCHAR2(64) NOT NULL REFERENCES pp_test_suite(id) ON DELETE CASCADE,
+  name VARCHAR2(255) NOT NULL,
+  type VARCHAR2(64) NOT NULL,
+  file_path VARCHAR2(2048) NOT NULL,
+  tags CLOB DEFAULT '[]' NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE TABLE pp_step_definition (
+  id VARCHAR2(64) PRIMARY KEY,
+  project_id VARCHAR2(64) NOT NULL REFERENCES pp_project(id) ON DELETE CASCADE,
+  pattern CLOB NOT NULL,
+  helper_function CLOB NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE TABLE pp_page_object (
+  id VARCHAR2(64) PRIMARY KEY,
+  project_id VARCHAR2(64) NOT NULL REFERENCES pp_project(id) ON DELETE CASCADE,
+  name VARCHAR2(255) NOT NULL,
+  screen_name VARCHAR2(255) NOT NULL,
+  version NUMBER DEFAULT 1 NOT NULL,
+  class_file_path VARCHAR2(2048) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE TABLE pp_secret (
+  id VARCHAR2(64) PRIMARY KEY,
+  project_id VARCHAR2(64) NOT NULL REFERENCES pp_project(id) ON DELETE CASCADE,
+  environment_id VARCHAR2(64) REFERENCES pp_environment(id) ON DELETE SET NULL,
+  name VARCHAR2(255) NOT NULL,
+  encrypted_value CLOB NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE UNIQUE INDEX pp_secret_scope_uq ON pp_secret (
+  project_id,
+  name,
+  NVL(environment_id, 'GLOBAL')
+);
+
+CREATE TABLE pp_user (
+  id VARCHAR2(64) PRIMARY KEY,
+  email VARCHAR2(320) NOT NULL UNIQUE,
+  password_hash VARCHAR2(255) NOT NULL,
+  role VARCHAR2(32) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE TABLE pp_schedule (
+  id VARCHAR2(64) PRIMARY KEY,
+  project_id VARCHAR2(64) NOT NULL REFERENCES pp_project(id) ON DELETE CASCADE,
+  name VARCHAR2(255) NOT NULL,
+  cron_expression VARCHAR2(128) NOT NULL,
+  suite_ids CLOB DEFAULT '[]' NOT NULL,
+  environment_id VARCHAR2(64) REFERENCES pp_environment(id) ON DELETE SET NULL,
+  enabled NUMBER(1) DEFAULT 1 NOT NULL,
+  notification_config CLOB,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE TABLE pp_test_run (
+  id VARCHAR2(64) PRIMARY KEY,
+  project_id VARCHAR2(64) NOT NULL REFERENCES pp_project(id) ON DELETE CASCADE,
+  suite_id VARCHAR2(64) REFERENCES pp_test_suite(id) ON DELETE SET NULL,
+  schedule_id VARCHAR2(64) REFERENCES pp_schedule(id) ON DELETE SET NULL,
+  environment_id VARCHAR2(64) REFERENCES pp_environment(id) ON DELETE SET NULL,
+  status VARCHAR2(32) DEFAULT 'pending' NOT NULL,
+  triggered_by VARCHAR2(32) DEFAULT 'manual' NOT NULL,
+  headed NUMBER(1) DEFAULT 0 NOT NULL,
+  log_path VARCHAR2(2048),
+  started_at TIMESTAMP,
+  ended_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE TABLE pp_test_result (
+  id VARCHAR2(64) PRIMARY KEY,
+  run_id VARCHAR2(64) NOT NULL REFERENCES pp_test_run(id) ON DELETE CASCADE,
+  test_case_id VARCHAR2(64) NOT NULL REFERENCES pp_test_case(id) ON DELETE CASCADE,
+  status VARCHAR2(32) NOT NULL,
+  duration_ms NUMBER,
+  error_message CLOB,
+  artifact_paths CLOB DEFAULT '[]' NOT NULL,
+  steps_json CLOB DEFAULT '[]' NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+);

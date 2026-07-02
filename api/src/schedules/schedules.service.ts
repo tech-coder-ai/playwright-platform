@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { ScheduleNotificationConfig } from '@playwright-platform/shared-types';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 import { ensureProjectExists } from '../common/ensure-exists.util';
 import { stringifyJsonArray } from '../common/json-array.util';
 import { SchedulerService } from './scheduler.service';
@@ -13,13 +13,13 @@ import { toSchedule } from './schedules.mapper';
 @Injectable()
 export class SchedulesService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly db: DatabaseService,
     private readonly scheduler: SchedulerService,
   ) {}
 
   async findByProject(projectId: string) {
-    await ensureProjectExists(this.prisma, projectId);
-    const schedules = await this.prisma.schedule.findMany({
+    await ensureProjectExists(this.db, projectId);
+    const schedules = await this.db.schedule.findMany({
       where: { projectId },
       orderBy: { createdAt: 'desc' },
       include: { environment: { select: { name: true } } },
@@ -28,7 +28,7 @@ export class SchedulesService {
   }
 
   async findOne(id: string) {
-    const schedule = await this.prisma.schedule.findUnique({
+    const schedule = await this.db.schedule.findUnique({
       where: { id },
       include: { environment: { select: { name: true } } },
     });
@@ -49,12 +49,12 @@ export class SchedulesService {
       notificationConfig?: ScheduleNotificationConfig;
     },
   ) {
-    await ensureProjectExists(this.prisma, projectId);
+    await ensureProjectExists(this.db, projectId);
     this.assertValidCron(data.cronExpression);
     await this.validateSuites(projectId, data.suiteIds);
     await this.validateEnvironment(projectId, data.environmentId);
 
-    const schedule = await this.prisma.schedule.create({
+    const schedule = await this.db.schedule.create({
       data: {
         projectId,
         name: data.name.trim(),
@@ -82,7 +82,7 @@ export class SchedulesService {
       notificationConfig?: ScheduleNotificationConfig | null;
     },
   ) {
-    const existing = await this.prisma.schedule.findUnique({ where: { id } });
+    const existing = await this.db.schedule.findUnique({ where: { id } });
     if (!existing) {
       throw new NotFoundException(`Schedule ${id} not found`);
     }
@@ -97,7 +97,7 @@ export class SchedulesService {
       await this.validateEnvironment(existing.projectId, data.environmentId ?? undefined);
     }
 
-    const schedule = await this.prisma.schedule.update({
+    const schedule = await this.db.schedule.update({
       where: { id },
       data: {
         name: data.name?.trim(),
@@ -120,7 +120,7 @@ export class SchedulesService {
   async remove(id: string) {
     await this.findOne(id);
     this.scheduler.unregisterSchedule(id);
-    return this.prisma.schedule.delete({ where: { id } });
+    return this.db.schedule.delete({ where: { id } });
   }
 
   async runNow(id: string) {
@@ -139,7 +139,7 @@ export class SchedulesService {
     if (suiteIds.length === 0) {
       throw new BadRequestException('At least one test suite is required');
     }
-    const suites = await this.prisma.testSuite.findMany({
+    const suites = await this.db.testSuite.findMany({
       where: { projectId, id: { in: suiteIds } },
     });
     if (suites.length !== suiteIds.length) {
@@ -149,7 +149,7 @@ export class SchedulesService {
 
   private async validateEnvironment(projectId: string, environmentId?: string) {
     if (!environmentId) return;
-    const environment = await this.prisma.environment.findFirst({
+    const environment = await this.db.environment.findFirst({
       where: { id: environmentId, projectId },
     });
     if (!environment) {

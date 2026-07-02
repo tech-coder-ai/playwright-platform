@@ -3,13 +3,13 @@ import type { AuthConfig, LoginDto, LoginResponse, User } from '@playwright-plat
 import { Public } from './auth.decorators';
 import { AuthService, RequestUser } from './auth.service';
 import { CurrentUser } from './current-user.decorator';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
-    private readonly prisma: PrismaService,
+    private readonly db: DatabaseService,
   ) {}
 
   @Public()
@@ -28,7 +28,7 @@ export class AuthController {
   async me(@CurrentUser() user: RequestUser | undefined): Promise<User | null> {
     if (!this.authService.isAuthEnabled()) return null;
     if (!user) throw new UnauthorizedException();
-    const record = await this.prisma.user.findUnique({ where: { id: user.id } });
+    const record = await this.db.user.findUnique({ where: { id: user.id } });
     if (!record) throw new UnauthorizedException();
     return this.authService.toUser(record);
   }

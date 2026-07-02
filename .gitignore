@@ -44,6 +44,7 @@ Thumbs.db
 # Local database & secrets
 data/*.sqlite
 data/*.sqlite-journal
+data/platform.json
 data/secrets.enc
 api/data/*.sqlite
 api/data/*.sqlite-journal

@@ -120,6 +120,29 @@ On first startup with auth enabled, the admin account is bootstrapped from `ADMI
 
 Sign in at http://localhost:4200/login when auth is enabled.
 
+## Database & browser configuration
+
+The platform supports restricted environments where Prisma, SQLite, or `playwright install` may not be allowed. Configure via `api/.env`:
+
+### Database (`DB_PROVIDER`)
+
+| Value | When to use | Setup |
+|-------|-------------|--------|
+| `prisma` (default) | Local dev, SQLite allowed | `npm run db:generate && npm run db:migrate` |
+| `json` | No SQL / no Prisma | `DB_PROVIDER=json` and optional `JSON_DB_PATH=../data/platform.json` |
+| `oracle` | Enterprise Oracle DB | `DB_PROVIDER=oracle`, Oracle credentials, run `api/database/oracle/schema.sql`, `npm install oracledb --workspace=api` |
+
+Prisma is only required when `DB_PROVIDER=prisma`. JSON and Oracle modes use the same API layer without Prisma at runtime.
+
+### Browser (`BROWSER_PROVIDER`)
+
+| Value | When to use | Setup |
+|-------|-------------|--------|
+| `playwright` (default) | Standard Playwright install | `npm run test:playwright:install` |
+| `npm` | `playwright install` blocked | `BROWSER_PROVIDER=npm`, `npm run test:chromium:install` (or set `CHROMIUM_EXECUTABLE_PATH`) |
+
+Playwright test execution stays the same; only the Chromium binary source changes. The npm `chromium` package path is passed via `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`.
+
 ## API Health Check
 
 ```bash

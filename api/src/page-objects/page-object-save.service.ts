@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 import { getTestsRoot } from '../test-runner/paths.util';
 import { normalizeGeneratedContent } from '../common/normalize-generated-content.util';
 import { PageObjectGenerateService } from './page-object-generate.service';
@@ -10,7 +10,7 @@ import type { SavePageObjectDto, SavedPageObjectResult } from '@playwright-platf
 @Injectable()
 export class PageObjectSaveService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly db: DatabaseService,
     private readonly generateService: PageObjectGenerateService,
   ) {}
 
@@ -21,7 +21,7 @@ export class PageObjectSaveService {
     await fs.mkdir(path.join(testsRoot, 'page-objects'), { recursive: true });
 
     if (dto.existingPageObjectId) {
-      const existing = await this.prisma.pageObject.findFirst({
+      const existing = await this.db.pageObject.findFirst({
         where: { id: dto.existingPageObjectId, projectId },
       });
       if (!existing) {
@@ -31,7 +31,7 @@ export class PageObjectSaveService {
       const fullPath = path.join(testsRoot, existing.classFilePath);
       await fs.writeFile(fullPath, normalizeGeneratedContent(dto.pageObject), 'utf8');
 
-      const updated = await this.prisma.pageObject.update({
+      const updated = await this.db.pageObject.update({
         where: { id: existing.id },
         data: {
           name: dto.name.trim(),
@@ -56,7 +56,7 @@ export class PageObjectSaveService {
     const classFilePath = path.join('page-objects', `${slug}.page.ts`).replace(/\\/g, '/');
     await fs.writeFile(path.join(testsRoot, classFilePath), normalizeGeneratedContent(dto.pageObject), 'utf8');
 
-    const created = await this.prisma.pageObject.create({
+    const created = await this.db.pageObject.create({
       data: {
         projectId,
         name: dto.name.trim(),

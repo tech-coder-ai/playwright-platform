@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 import { EncryptionService } from '../crypto/encryption.service';
 import { ensureProjectExists } from '../common/ensure-exists.util';
 import { toSecretMeta } from './secrets.mapper';
@@ -11,13 +11,13 @@ import { toSecretMeta } from './secrets.mapper';
 @Injectable()
 export class SecretsService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly db: DatabaseService,
     private readonly encryption: EncryptionService,
   ) {}
 
   async findByProject(projectId: string) {
-    await ensureProjectExists(this.prisma, projectId);
-    const secrets = await this.prisma.secret.findMany({
+    await ensureProjectExists(this.db, projectId);
+    const secrets = await this.db.secret.findMany({
       where: { projectId },
       orderBy: [{ name: 'asc' }],
       include: { environment: { select: { name: true } } },
@@ -26,7 +26,7 @@ export class SecretsService {
   }
 
   async findOne(id: string) {
-    const secret = await this.prisma.secret.findUnique({
+    const secret = await this.db.secret.findUnique({
       where: { id },
       include: { environment: { select: { name: true } } },
     });
@@ -40,7 +40,7 @@ export class SecretsService {
     projectId: string,
     data: { name: string; value: string; environmentId?: string },
   ) {
-    await ensureProjectExists(this.prisma, projectId);
+    await ensureProjectExists(this.db, projectId);
     await this.validateEnvironmentScope(projectId, data.environmentId);
     await this.ensureUniqueName(projectId, data.name, data.environmentId);
 
@@ -48,7 +48,7 @@ export class SecretsService {
       throw new BadRequestException('Secret value is required');
     }
 
-    const secret = await this.prisma.secret.create({
+    const secret = await this.db.secret.create({
       data: {
         projectId,
         name: data.name.trim(),
@@ -64,7 +64,7 @@ export class SecretsService {
     id: string,
     data: { name?: string; value?: string; environmentId?: string | null },
   ) {
-    const existing = await this.prisma.secret.findUnique({ where: { id } });
+    const existing = await this.db.secret.findUnique({ where: { id } });
     if (!existing) {
       throw new NotFoundException(`Secret ${id} not found`);
     }
@@ -79,7 +79,7 @@ export class SecretsService {
       await this.ensureUniqueName(existing.projectId, name, environmentId ?? undefined, id);
     }
 
-    const secret = await this.prisma.secret.update({
+    const secret = await this.db.secret.update({
       where: { id },
       data: {
         name,
@@ -96,16 +96,16 @@ export class SecretsService {
 
   async remove(id: string) {
     await this.findOne(id);
-    return this.prisma.secret.delete({ where: { id } });
+    return this.db.secret.delete({ where: { id } });
   }
 
   /** Decrypted secrets for test-run injection — never expose via REST. */
   async resolveForRun(projectId: string, environmentId?: string): Promise<Record<string, string>> {
-    const globalSecrets = await this.prisma.secret.findMany({
+    const globalSecrets = await this.db.secret.findMany({
       where: { projectId, environmentId: null },
     });
     const envSecrets = environmentId
-      ? await this.prisma.secret.findMany({ where: { projectId, environmentId } })
+      ? await this.db.secret.findMany({ where: { projectId, environmentId } })
       : [];
 
     const resolved: Record<string, string> = {};
@@ -120,7 +120,7 @@ export class SecretsService {
 
   private async validateEnvironmentScope(projectId: string, environmentId?: string) {
     if (!environmentId) return;
-    const environment = await this.prisma.environment.findFirst({
+    const environment = await this.db.environment.findFirst({
       where: { id: environmentId, projectId },
     });
     if (!environment) {
@@ -134,7 +134,7 @@ export class SecretsService {
     environmentId?: string,
     excludeId?: string,
   ) {
-    const existing = await this.prisma.secret.findFirst({
+    const existing = await this.db.secret.findFirst({
       where: {
         projectId,
         name,

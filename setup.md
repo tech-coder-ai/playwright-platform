@@ -44,15 +44,17 @@ This installs all workspace packages (`web`, `api`, `shared-types`, `codegen-eng
 
 ---
 
-## 4. Install Playwright Chromium
+## 4. Install Chromium
 
-The API runs tests using headless Chromium. Install it once:
+Choose **one** browser setup based on what your environment allows.
+
+### Option A — Playwright browser (default)
 
 ```powershell
 npm run test:playwright:install
 ```
 
-If the install fails, run Playwright’s dependency checker:
+If the install fails:
 
 ```powershell
 cd tests
@@ -60,6 +62,26 @@ npx playwright install chromium
 npx playwright install-deps chromium
 cd ..
 ```
+
+In `api\.env` leave `BROWSER_PROVIDER=playwright` (default).
+
+### Option B — npm `chromium` package (no `playwright install`)
+
+Use this when corporate policy blocks Playwright’s browser download:
+
+```powershell
+npm run test:chromium:install
+```
+
+In `api\.env`:
+
+```env
+BROWSER_PROVIDER=npm
+# Optional if auto-detection fails:
+# CHROMIUM_EXECUTABLE_PATH=C:\path\to\chromium.exe
+```
+
+Test runs and codegen still use Playwright; only the Chromium binary comes from the npm package.
 
 ---
 
@@ -71,10 +93,44 @@ Copy the example env file:
 Copy-Item api\.env.example api\.env
 ```
 
-Edit `api\.env` in Notepad, VS Code, or Cursor. Minimum recommended settings:
+Edit `api\.env` in Notepad, VS Code, or Cursor.
+
+### Database provider
+
+| `DB_PROVIDER` | Description |
+|---------------|-------------|
+| `prisma` (default) | SQLite via Prisma — run migrations (step 6) |
+| `json` | Single JSON file store — no Prisma/SQLite at runtime |
+| `oracle` | Oracle DB — run `api\database\oracle\schema.sql`, install `oracledb` |
+
+**JSON file store example** (no SQLite):
+
+```env
+DB_PROVIDER=json
+JSON_DB_PATH=../data/platform.json
+```
+
+Skip Prisma migrate steps when using `json` or `oracle`.
+
+**Oracle example:**
+
+```env
+DB_PROVIDER=oracle
+ORACLE_USER=pp_user
+ORACLE_PASSWORD=your-password
+ORACLE_CONNECTION_STRING=localhost:1521/XEPDB1
+```
+
+```powershell
+npm install oracledb --workspace=api
+```
+
+### Minimum recommended settings
 
 ```env
 DATABASE_URL="file:../data/db.sqlite"
+DB_PROVIDER=prisma
+BROWSER_PROVIDER=playwright
 SECRETS_ENCRYPTION_KEY="change-me-in-production-32chars!!"
 ARTIFACTS_DIR="../artifacts"
 TESTS_DIR="../tests"

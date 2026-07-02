@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { RunArtifactsConfig } from '@playwright-platform/shared-types';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 import {
   parseRunArtifactsConfig,
   serializeRunArtifactsConfig,
@@ -16,10 +16,10 @@ function mapProject<T extends { runArtifactsConfig?: string }>(project: T) {
 
 @Injectable()
 export class ProjectsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: DatabaseService) {}
 
   findAll() {
-    return this.prisma.project
+    return this.db.project
       .findMany({
         orderBy: { createdAt: 'desc' },
         include: {
@@ -36,7 +36,7 @@ export class ProjectsService {
   }
 
   async findOne(id: string) {
-    const project = await this.prisma.project.findUnique({
+    const project = await this.db.project.findUnique({
       where: { id },
       include: {
         _count: { select: { environments: true, testSuites: true } },
@@ -54,7 +54,7 @@ export class ProjectsService {
   }
 
   create(data: { name: string; description?: string }) {
-    return this.prisma.project.create({ data }).then(mapProject);
+    return this.db.project.create({ data }).then(mapProject);
   }
 
   async update(
@@ -62,7 +62,7 @@ export class ProjectsService {
     data: { name?: string; description?: string; runArtifactsConfig?: RunArtifactsConfig },
   ) {
     await this.findOne(id);
-    return this.prisma.project
+    return this.db.project
       .update({
         where: { id },
         data: {
@@ -78,6 +78,6 @@ export class ProjectsService {
 
   async remove(id: string) {
     await this.findOne(id);
-    return this.prisma.project.delete({ where: { id } });
+    return this.db.project.delete({ where: { id } });
   }
 }

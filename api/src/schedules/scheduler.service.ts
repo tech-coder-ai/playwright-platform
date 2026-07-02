@@ -5,7 +5,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import * as cron from 'node-cron';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../database/database.service';
 import { TestRunsService } from '../test-runner/test-runs.service';
 import { parseJsonArray } from '../common/json-array.util';
 
@@ -15,12 +15,12 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
   private readonly jobs = new Map<string, cron.ScheduledTask>();
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly db: DatabaseService,
     private readonly testRunsService: TestRunsService,
   ) {}
 
   async onModuleInit() {
-    const schedules = await this.prisma.schedule.findMany({ where: { enabled: true } });
+    const schedules = await this.db.schedule.findMany({ where: { enabled: true } });
     for (const schedule of schedules) {
       this.registerJob(schedule.id, schedule.cronExpression);
     }
@@ -35,7 +35,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
   }
 
   async refreshSchedule(scheduleId: string) {
-    const schedule = await this.prisma.schedule.findUnique({ where: { id: scheduleId } });
+    const schedule = await this.db.schedule.findUnique({ where: { id: scheduleId } });
     if (!schedule) {
       this.unregisterJob(scheduleId);
       return;
@@ -84,7 +84,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async fireSchedule(scheduleId: string) {
-    const schedule = await this.prisma.schedule.findUnique({ where: { id: scheduleId } });
+    const schedule = await this.db.schedule.findUnique({ where: { id: scheduleId } });
     if (!schedule?.enabled) return;
 
     const suiteIds = parseJsonArray(schedule.suiteIds);
