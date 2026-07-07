@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 /**
  * Standalone script to test LLM prompt generation.
- * Usage: OPENAI_API_KEY=... node dist/scripts/test-prompt.js [path-to-recording.ts]
+ * Usage: node dist/scripts/test-prompt.js [path-to-recording.ts]
+ * Uses the stellar provider by default; set LLM_PROVIDER=openai and
+ * OPENAI_API_KEY=... to test against OpenAI.
  */
 import * as fs from 'fs';
 import * as path from 'path';
 import { generateFromCodegen } from '../generate';
+import { resolveLlmProvider } from '../llm-client';
 
 async function main() {
   const apiKey = process.env['OPENAI_API_KEY'];
-  if (!apiKey) {
-    console.error('Set OPENAI_API_KEY');
+  if (resolveLlmProvider() === 'openai' && !apiKey) {
+    console.error('Set OPENAI_API_KEY (required when LLM_PROVIDER=openai)');
     process.exit(1);
   }
 

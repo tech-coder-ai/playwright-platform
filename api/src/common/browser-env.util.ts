@@ -44,7 +44,11 @@ export function buildPlaywrightBrowserEnv(
   const env: Record<string, string> = {};
   const executablePath = resolveChromiumExecutablePath();
   if (executablePath) {
-    env['PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'] = executablePath;
+    // `playwright codegen` / `playwright open` only honor PWTEST_CLI_EXECUTABLE_PATH.
+    env['PWTEST_CLI_EXECUTABLE_PATH'] = executablePath;
+    // Child test processes (cucumber-js, playwright test) read this via
+    // tests/support/browser-env.ts instead of re-resolving the chromium package.
+    env['CHROMIUM_EXECUTABLE_PATH'] = executablePath;
   }
   env['BROWSER_PROVIDER'] = getBrowserProvider();
   return env;

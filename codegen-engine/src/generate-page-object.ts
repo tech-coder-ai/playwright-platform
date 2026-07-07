@@ -15,7 +15,8 @@ export interface GeneratePageObjectOptions {
   screenName: string;
   componentName?: string;
   existingPageObject?: string;
-  apiKey: string;
+  /** Required for the openai provider; unused by stellar. */
+  apiKey?: string;
   model?: string;
 }
 

@@ -45,7 +45,7 @@ export class CodegenSaveService {
     );
     await fs.writeFile(
       path.join(testsRoot, stepDefinitionsPath),
-      normalizeGeneratedContent(dto.stepDefinitions),
+      rewritePageObjectImport(normalizeGeneratedContent(dto.stepDefinitions), slug),
       'utf8',
     );
     await fs.writeFile(
@@ -81,6 +81,19 @@ export class CodegenSaveService {
       pageObjectPath: pageObjectPath.replace(/\\/g, '/'),
     };
   }
+}
+
+/**
+ * The generated step file imports the page object from a placeholder path
+ * (the LLM cannot know the final filename, which is derived from the test
+ * case name at save time). Point every ../page-objects/* import at the file
+ * actually written next to it.
+ */
+function rewritePageObjectImport(stepDefinitions: string, slug: string): string {
+  return stepDefinitions.replace(
+    /(from\s*['"])\.\.?\/page-objects\/[^'"]+(['"])/g,
+    `$1../page-objects/${slug}.page$2`,
+  );
 }
 
 function slugify(value: string): string {

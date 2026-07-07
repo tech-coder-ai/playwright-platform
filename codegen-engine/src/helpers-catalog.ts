@@ -7,6 +7,13 @@ Core navigation & forms:
 - fillForm(page: Page, fields: Record<string, string>): Promise<void>
 - clickButton(page: Page, label: string): Promise<void>  // waits for visible before click
 
+Locator-based waits (preferred — reuse the EXACT recorded locator chain):
+- waitAndClick(locator: Locator, { timeout?, firstInteraction? }): Promise<void>
+  Waits visible then clicks. Pass { firstInteraction: true } for the FIRST action after navigate() (60s wait — slow SPA render).
+- waitAndFill(locator: Locator, value: string, { timeout?, firstInteraction? }): Promise<void>
+- openMenu(trigger: Locator, revealedContent: Locator, { firstInteraction? }): Promise<void>
+  Clicks a menu trigger (hamburger / icon button), then waits for the revealed panel or first item to be visible.
+
 Visibility waits (use BEFORE every interaction):
 - waitForElement(page: Page, selector: string, timeout?: number): Promise<void>
   Waits until selector is visible (default 15s). Call before click/fill on that element.
@@ -28,6 +35,16 @@ Step definitions MUST prefer these helpers over bare page.click() / page.fill().
 `;
 
 export const WAIT_AND_RESILIENCE_RULES = `
+LOCATOR FIDELITY RULES (mandatory — violations make the test fail immediately):
+
+A. For every recorded action, reuse the EXACT locator chain from the codegen recording, verbatim.
+   Codegen already proved those locators work. Do NOT substitute a "nicer" locator:
+   - NEVER replace a recorded locator with getByRole('menuitem'|'button'|'link', { name: ... }) that is not in the recording.
+   - Icon-only buttons (hamburger menus, toggles, close buttons) usually have NO id and NO accessible name — if the recording used page.locator('css'), .first(), .nth(n), or a filter chain, keep it exactly as recorded.
+   - You may only add waits/helpers AROUND recorded locators, never change the locator itself.
+B. Only assertions (Then steps) may use locators that are not in the recording, since codegen does not record assertions. Prefer role/text of content that the recorded flow actually made visible.
+C. Parameterized page-object methods may interpolate step arguments into a recorded locator pattern, but the pattern must come from the recording.
+
 WAIT & RESILIENCE RULES (mandatory):
 
 1. Never call .click(), .fill(), .press(), or .selectOption() without a preceding visibility wait.
@@ -86,5 +103,29 @@ When('the user opens {string} under {string}', async function (item: string, men
 await runOptionalStep('dismiss cookie banner', async () => {
   await clickRoleIfVisible(page, 'button', 'Accept', { timeout: 15_000 });
 });
+\`\`\`
+
+10. First interaction after navigation must allow extra render time:
+   - The app may keep rendering long after domcontentloaded. The first element you touch gets a 60s wait: waitAndClick(locator, { firstInteraction: true }) or locator.waitFor({ state: 'visible', timeout: 60_000 }).
+
+11. Example: hamburger / icon menu with no id or accessible name.
+   Recording contained: await page.locator('.app-header button.menu-toggle').click();
+   followed by:        await page.getByText('Reports').click();
+\`\`\`typescript
+// Page object — keep the recorded locators verbatim:
+export class AppShellPage {
+  constructor(private readonly page: Page) {}
+
+  async openNavigationMenu(): Promise<void> {
+    // exact locator from the recording — do NOT swap in a role guess
+    const trigger = this.page.locator('.app-header button.menu-toggle');
+    const firstMenuEntry = this.page.getByText('Reports');
+    await openMenu(trigger, firstMenuEntry, { firstInteraction: true });
+  }
+
+  async selectMenuEntry(label: string): Promise<void> {
+    await waitAndClick(this.page.getByText(label));
+  }
+}
 \`\`\`
 `;

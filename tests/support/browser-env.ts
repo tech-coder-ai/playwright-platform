@@ -48,7 +48,9 @@ export function getBrowserLaunchOptions(
 export function applyPlaywrightBrowserEnv(): void {
   const executablePath = resolveChromiumExecutablePath();
   if (executablePath) {
-    process.env['PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'] = executablePath;
+    // Only env var honored by `playwright codegen` / `playwright open` CLIs.
+    process.env['PWTEST_CLI_EXECUTABLE_PATH'] = executablePath;
+    process.env['CHROMIUM_EXECUTABLE_PATH'] = executablePath;
   }
   process.env['BROWSER_PROVIDER'] = getBrowserProvider();
 }

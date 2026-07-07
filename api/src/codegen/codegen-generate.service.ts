@@ -3,7 +3,7 @@ import {
   generateFromCodegen,
   validateGeneratedArtifacts,
 } from '@playwright-platform/codegen-engine';
-import { requireOpenAiApiKey } from '../common/llm-config.util';
+import { requireLlmApiKey } from '../common/llm-config.util';
 import { CodegenService } from './codegen.service';
 import type { GeneratedTestArtifacts } from '@playwright-platform/shared-types';
 
@@ -21,7 +21,7 @@ export class CodegenGenerateService {
       throw new BadRequestException('Recording is empty — record actions before generating');
     }
 
-    const apiKey = requireOpenAiApiKey();
+    const apiKey = requireLlmApiKey();
 
     this.logger.log(`Generating tests from session ${sessionId}`);
 

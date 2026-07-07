@@ -83,6 +83,32 @@ BROWSER_PROVIDER=npm
 
 Test runs and codegen still use Playwright; only the Chromium binary comes from the npm package.
 
+**How the executable is resolved:**
+
+1. `CHROMIUM_EXECUTABLE_PATH` in `api\.env`, if set — always wins.
+2. Otherwise (with `BROWSER_PROVIDER=npm`) the path exported by the `chromium` npm package (`require('chromium').path`).
+
+The API passes the resolved path to test runs via `launchOptions.executablePath` and to the codegen recorder via the `PWTEST_CLI_EXECUTABLE_PATH` environment variable (the only override `playwright codegen` honors).
+
+**Verify the npm package actually downloaded a binary** (its postinstall also downloads Chromium — from `commondatastorage.googleapis.com`, which some proxies block silently):
+
+```powershell
+node -e "console.log(require('chromium').path)"
+# Then check the printed file exists.
+```
+
+### Option C — use an already-installed Chrome or Edge (no downloads at all)
+
+If both downloads are blocked, point the platform at the browser already on the machine — Playwright drives stable Chrome/Edge fine:
+
+```env
+BROWSER_PROVIDER=npm
+CHROMIUM_EXECUTABLE_PATH=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe
+# or: C:\Program Files\Google\Chrome\Application\chrome.exe
+```
+
+No `npm run test:chromium:install` needed in this mode — `CHROMIUM_EXECUTABLE_PATH` short-circuits the package lookup.
+
 ---
 
 ## 5. Configure environment variables
@@ -134,10 +160,17 @@ BROWSER_PROVIDER=playwright
 SECRETS_ENCRYPTION_KEY="change-me-in-production-32chars!!"
 ARTIFACTS_DIR="../artifacts"
 TESTS_DIR="../tests"
-OPENAI_API_KEY="your-openai-api-key"
-OPENAI_MODEL="gpt-4o"
+LLM_PROVIDER=stellar
+STELLAR_API_URL=http://localhost:8080/apiv1/stellar/chat
 AUTH_ENABLED=false
 ```
+
+### LLM provider
+
+| `LLM_PROVIDER` | Description |
+|----------------|-------------|
+| `stellar` (default) | Local/internal endpoint at `STELLAR_API_URL`. Request body: `{ "systemPrompt": "...", "userMessage": "..." }`. No API key. |
+| `openai` | OpenAI Chat Completions. Requires `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`, default `gpt-4o`). |
 
 **Important (Windows):**
 
@@ -145,7 +178,7 @@ AUTH_ENABLED=false
 - Wrap values that contain special characters in **double quotes**.
 - Do **not** commit `api\.env` (it is gitignored).
 
-For LLM test generation and the recorder, `OPENAI_API_KEY` is required. The rest of the app runs without it, but recording → Generate with LLM will fail until the key is set.
+For LLM test generation and the recorder, the stellar endpoint must be reachable (or, with `LLM_PROVIDER=openai`, `OPENAI_API_KEY` must be set). The rest of the app runs without an LLM, but recording → Generate with LLM will fail until one is configured.
 
 ---
 
@@ -284,7 +317,7 @@ Restart the API. Sign in at **http://localhost:4200/login**.
 | `npm install` errors | Run PowerShell **as Administrator** once, or install [Windows Build Tools](https://github.com/nodejs/node-gyp#on-windows). Ensure Node 20+. |
 | Playwright browser missing | `npm run test:playwright:install` from repo root. |
 | Prisma / database errors | Delete `data\db.sqlite` (dev only), then `npm run db:migrate` again. |
-| LLM generation fails | Check `OPENAI_API_KEY` in `api\.env`, restart API, confirm billing/access for the model in `OPENAI_MODEL`. |
+| LLM generation fails | With `LLM_PROVIDER=stellar` (default): confirm the endpoint responds, e.g. `curl -X POST http://localhost:8080/apiv1/stellar/chat -H "Content-Type: application/json" -d '{"systemPrompt":"hi","userMessage":"hi"}'`. With `openai`: check `OPENAI_API_KEY` in `api\.env` and model access. Restart the API after changing `.env`. |
 | Tests fail immediately | Open run detail → **Log** tab. Ensure `tests\features`, `tests\steps`, and `tests\page-objects` files exist for Gherkin tests. |
 
 ---
@@ -301,7 +334,7 @@ npm run db:studio
 # Run Playwright tests directly (optional)
 npm run test:playwright
 
-# Test LLM prompts (requires OPENAI_API_KEY)
+# Test LLM prompts (uses stellar by default; set LLM_PROVIDER=openai + OPENAI_API_KEY for OpenAI)
 npm run prompt:test
 ```
 

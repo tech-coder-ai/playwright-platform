@@ -24,8 +24,14 @@ Respond with ONLY valid JSON (no markdown fences) matching this schema:
 
 Rules:
 - Use clear Gherkin Given/When/Then steps that map to the recorded actions
+- Every single Gherkin step in featureFile MUST have exactly one matching Given/When/Then definition in stepDefinitions — no undefined and no unused steps
 - Tag scenarios with @optional on steps that depend on UI that may not always render (banners, promos, secondary menus)
 - Step definitions must import helpers from '../helpers' — do not invent helper names outside the catalog
+- Step definitions MUST import the page object exactly as: import { <ClassName> } from '../page-objects/page-object'; (the platform rewrites this path on save — never invent another path, and <ClassName> must be the class exported by pageObject)
+- The initial navigation Given step MUST use the navigate(page, url) helper (it has the 3-minute first-load timeout built in) — never a raw page.goto with default timeout
+- The FIRST interaction after navigation must pass { firstInteraction: true } to waitAndClick/waitAndFill/openMenu (60s wait — the app keeps rendering after load)
+- All screen interactions in step definitions must go through page object methods; do not inline locators for the main screen in step definitions
+- Page object methods should wrap the EXACT recorded locators with waitAndClick / waitAndFill / openMenu — see LOCATOR FIDELITY RULES above; inventing a different locator than the recording is the #1 cause of failing generated tests
 - NEVER emit bare .click() or .fill() without a prior waitFor({ state: 'visible' }) or a helper that waits internally
 - Use clickRoleIfVisible / clickIfVisible / runOptionalStep for any action that might be absent in headless or alternate environments
 - For multi-step menus: wait for each level to become visible before the next interaction

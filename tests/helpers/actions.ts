@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import {
   ACTION_TIMEOUT_MS,
+  FIRST_INTERACTION_TIMEOUT_MS,
   LOAD_STATE_TIMEOUT_MS,
   NAVIGATION_TIMEOUT_MS,
   SKIP_VISIBILITY_TIMEOUT_MS,
@@ -35,6 +36,48 @@ export async function waitForElement(
   timeout = VISIBILITY_TIMEOUT_MS,
 ): Promise<void> {
   await page.locator(selector).waitFor({ state: 'visible', timeout });
+}
+
+/**
+ * Waits for the locator to be visible, then clicks. Accepts any Locator, so
+ * exact codegen-recorded chains (icon buttons without ids, .first(), CSS)
+ * work unchanged. Use firstInteraction for the first action after navigate().
+ */
+export async function waitAndClick(
+  locator: Locator,
+  options: { timeout?: number; firstInteraction?: boolean } = {},
+): Promise<void> {
+  const timeout =
+    options.timeout ??
+    (options.firstInteraction ? FIRST_INTERACTION_TIMEOUT_MS : VISIBILITY_TIMEOUT_MS);
+  await locator.waitFor({ state: 'visible', timeout });
+  await locator.click({ timeout: ACTION_TIMEOUT_MS });
+}
+
+/** Waits for the locator to be visible, then fills it. */
+export async function waitAndFill(
+  locator: Locator,
+  value: string,
+  options: { timeout?: number; firstInteraction?: boolean } = {},
+): Promise<void> {
+  const timeout =
+    options.timeout ??
+    (options.firstInteraction ? FIRST_INTERACTION_TIMEOUT_MS : VISIBILITY_TIMEOUT_MS);
+  await locator.waitFor({ state: 'visible', timeout });
+  await locator.fill(value, { timeout: ACTION_TIMEOUT_MS });
+}
+
+/**
+ * Opens a menu/drawer: waits for the trigger (e.g. a hamburger icon button),
+ * clicks it, then waits until the revealed content is visible before returning.
+ */
+export async function openMenu(
+  trigger: Locator,
+  revealedContent: Locator,
+  options: { timeout?: number; firstInteraction?: boolean } = {},
+): Promise<void> {
+  await waitAndClick(trigger, options);
+  await revealedContent.waitFor({ state: 'visible', timeout: VISIBILITY_TIMEOUT_MS });
 }
 
 /** Returns true if the locator becomes visible within the timeout. */

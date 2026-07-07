@@ -12,6 +12,7 @@ import { DatabaseService } from '../database/database.service';
 import { ensureProjectExists } from '../common/ensure-exists.util';
 import { getTestsRoot } from '../test-runner/paths.util';
 import { buildPlaywrightBrowserEnv } from '../common/browser-env.util';
+import { resolvePlaywrightCli } from '../common/cli-path.util';
 import {
   getCodegenOutputPath,
   getCodegenRelativeOutputPath,
@@ -103,9 +104,9 @@ export class CodegenService implements OnModuleDestroy {
 
     try {
       const child = spawn(
-        'npx',
+        process.execPath,
         [
-          'playwright',
+          resolvePlaywrightCli(getTestsRoot()),
           'codegen',
           normalizedUrl,
           `--output=${outputPath}`,

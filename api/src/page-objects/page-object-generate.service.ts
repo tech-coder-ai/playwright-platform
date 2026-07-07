@@ -3,7 +3,7 @@ import {
   generatePageObjectFromCodegen,
   validatePageObject,
 } from '@playwright-platform/codegen-engine';
-import { requireOpenAiApiKey } from '../common/llm-config.util';
+import { requireLlmApiKey } from '../common/llm-config.util';
 import { CodegenService } from '../codegen/codegen.service';
 import { PageObjectsService } from './page-objects.service';
 import type { GeneratedPageObjectArtifacts } from '@playwright-platform/shared-types';
@@ -28,7 +28,7 @@ export class PageObjectGenerateService {
       throw new BadRequestException('Recording is empty — record actions before generating');
     }
 
-    const apiKey = requireOpenAiApiKey();
+    const apiKey = requireLlmApiKey();
 
     let existingPageObject: string | undefined;
     if (session.targetPageObjectId) {

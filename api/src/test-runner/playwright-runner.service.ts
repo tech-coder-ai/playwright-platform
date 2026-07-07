@@ -5,6 +5,7 @@ import type { RunArtifactsConfig } from '@playwright-platform/shared-types';
 import { getRunArtifactDir, getTestsRoot } from './paths.util';
 import { buildArtifactEnvVars } from './run-artifacts.util';
 import { buildPlaywrightBrowserEnv } from '../common/browser-env.util';
+import { resolveCucumberCli, resolvePlaywrightCli } from '../common/cli-path.util';
 
 export interface PlaywrightRunResult {
   exitCode: number;
@@ -25,7 +26,7 @@ export async function runPlaywrightSpec(
   env: Record<string, string>,
   options: RunPlaywrightOptions = {},
 ): Promise<PlaywrightRunResult> {
-  const args = ['playwright', 'test', specFile, '--config=playwright.config.ts'];
+  const args = [resolvePlaywrightCli(getTestsRoot()), 'test', specFile, '--config=playwright.config.ts'];
   if (options.headed) {
     args.push('--headed');
   }
@@ -50,7 +51,7 @@ export async function runGherkinFeature(
   }
 
   return runPlaywrightCommand(runId, resolvedFeature, [
-    'cucumber-js',
+    resolveCucumberCli(getTestsRoot()),
     resolvedFeature,
     '--config',
     'cucumber.config.js',
@@ -94,7 +95,7 @@ async function runPlaywrightCommand(
   };
 
   const testsRoot = getTestsRoot();
-  const { exitCode, log } = await spawnProcess('npx', args, testsRoot, runEnv);
+  const { exitCode, log } = await spawnProcess(process.execPath, args, testsRoot, runEnv);
   await fs.writeFile(logPath, log, 'utf8');
 
   const artifactPaths = await collectArtifacts(caseDir, runId);
