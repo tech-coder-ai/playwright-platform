@@ -19,5 +19,15 @@ export const NAVIGATION_TIMEOUT_MS = 180_000;
 /** Wait for DOM / SPA shell after goto. */
 export const LOAD_STATE_TIMEOUT_MS = 180_000;
 
+/**
+ * After goto, wait for the network to go quiet so the SPA has fetched and
+ * hydrated. Capped — long-polling apps never reach networkidle, so callers
+ * swallow the timeout.
+ */
+export const NETWORK_IDLE_TIMEOUT_MS = 30_000;
+
+/** How long a click gets to produce its effect (URL change, menu opening) before we retry it. */
+export const CLICK_EFFECT_TIMEOUT_MS = 10_000;
+
 /** Cucumber step budget — must exceed navigation + subsequent actions. */
 export const CUCUMBER_STEP_TIMEOUT_MS = 240_000;

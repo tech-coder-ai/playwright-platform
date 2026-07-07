@@ -1,9 +1,17 @@
 export const HELPER_CATALOG = `
-Available test helper functions (import from '../helpers' in step definition files):
+Available test helper functions. Import them from '../helpers' in EVERY file that uses them —
+both step definition files (tests/steps/) and page object files (tests/page-objects/) sit next
+to tests/helpers/, so the import path is '../helpers' in both:
+  import { navigate, waitAndClick, waitAndFill, openMenu } from '../helpers';
 
 Core navigation & forms:
 - login(page: Page, credentials: { username: string; password: string }): Promise<void>
-- navigate(page: Page, path: string): Promise<void>  // goto up to 3 min + domcontentloaded wait
+- navigate(page: Page, path: string): Promise<void>
+  goto up to 3 min + domcontentloaded + networkidle (30s cap) so the SPA is hydrated before the next step
+- clickAndWaitForUrl(page: Page, locator: Locator, { expectedUrl?, timeout?, firstInteraction? }): Promise<void>
+  REQUIRED for every click that should navigate or change the route (links, submit buttons, menu entries
+  that open a page). Verifies the URL actually changed and RETRIES the click if it was swallowed by a
+  still-loading UI. Never use a bare click for navigation.
 - fillForm(page: Page, fields: Record<string, string>): Promise<void>
 - clickButton(page: Page, label: string): Promise<void>  // waits for visible before click
 
@@ -12,7 +20,8 @@ Locator-based waits (preferred — reuse the EXACT recorded locator chain):
   Waits visible then clicks. Pass { firstInteraction: true } for the FIRST action after navigate() (60s wait — slow SPA render).
 - waitAndFill(locator: Locator, value: string, { timeout?, firstInteraction? }): Promise<void>
 - openMenu(trigger: Locator, revealedContent: Locator, { firstInteraction? }): Promise<void>
-  Clicks a menu trigger (hamburger / icon button), then waits for the revealed panel or first item to be visible.
+  Clicks a menu trigger (hamburger / icon button), waits for the revealed panel or first item to be
+  visible, and re-clicks if the menu did not open (click landed while the UI was still hydrating).
 
 Visibility waits (use BEFORE every interaction):
 - waitForElement(page: Page, selector: string, timeout?: number): Promise<void>
@@ -108,11 +117,20 @@ await runOptionalStep('dismiss cookie banner', async () => {
 10. First interaction after navigation must allow extra render time:
    - The app may keep rendering long after domcontentloaded. The first element you touch gets a 60s wait: waitAndClick(locator, { firstInteraction: true }) or locator.waitFor({ state: 'visible', timeout: 60_000 }).
 
+10b. Visible is NOT clickable — verify every click had an effect:
+   - While a SPA is still loading, elements are visible before their click handlers attach; a click "succeeds" but nothing happens.
+   - Any click that should navigate / change the route MUST use clickAndWaitForUrl(page, locator, ...) — it verifies the URL changed and retries the click.
+   - Any click that should reveal content (menus, dialogs, accordions) MUST use openMenu(trigger, revealedContent) or follow the click with a waitFor on the revealed element.
+   - NEVER end a When step right after a click without verifying its effect.
+
 11. Example: hamburger / icon menu with no id or accessible name.
    Recording contained: await page.locator('.app-header button.menu-toggle').click();
    followed by:        await page.getByText('Reports').click();
 \`\`\`typescript
 // Page object — keep the recorded locators verbatim:
+import type { Page } from '@playwright/test';
+import { openMenu, waitAndClick } from '../helpers';
+
 export class AppShellPage {
   constructor(private readonly page: Page) {}
 

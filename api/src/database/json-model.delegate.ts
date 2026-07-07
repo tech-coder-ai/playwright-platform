@@ -137,46 +137,63 @@ export class JsonModelDelegate implements ModelDelegate {
   private applyInclude(
     record: Record<string, unknown>,
     include: Record<string, unknown>,
+    modelName: string = this.modelName,
   ): Record<string, unknown> {
-    const relations = MODEL_RELATIONS[this.modelName] ?? {};
+    const relations = MODEL_RELATIONS[modelName] ?? {};
     const result = { ...record };
 
     for (const [key, spec] of Object.entries(include)) {
+      if (spec === false) continue;
       if (key === '_count') {
-        result['_count'] = this.applyCount(record, spec as Record<string, unknown>);
+        result['_count'] = this.applyCount(record, spec as Record<string, unknown>, modelName);
         continue;
       }
 
       const relation = relations[key];
       if (!relation) continue;
+
+      // spec is either `true` or Prisma relation options: { include?, select?, where?, orderBy? }.
+      // Nested relations resolve against the RELATED model, not this delegate's model.
+      const options = (spec && typeof spec === 'object' ? spec : {}) as {
+        include?: Record<string, unknown>;
+        select?: Record<string, unknown>;
+        where?: Record<string, unknown>;
+        orderBy?: Record<string, 'asc' | 'desc'>;
+      };
+      const shapeItem = (item: Record<string, unknown>): Record<string, unknown> => {
+        let shaped: Record<string, unknown> = { ...item };
+        if (options.include) shaped = this.applyInclude(shaped, options.include, relation.model);
+        if (options.select) shaped = applySelect(shaped, options.select);
+        return this.hydrateDates(shaped);
+      };
+
       const related = this.resolveRelation(record, relation);
       if (relation.many) {
-        const rows = (related as Record<string, unknown>[]).map((item) =>
-          spec && typeof spec === 'object'
-            ? this.applyInclude(item, spec as Record<string, unknown>)
-            : item,
-        );
-        result[key] = rows.map((item) => this.hydrateDates(item));
-      } else if (related) {
-        result[key] =
-          spec && typeof spec === 'object'
-            ? this.applyInclude(related as Record<string, unknown>, spec as Record<string, unknown>)
-            : related;
-        if (result[key] && typeof result[key] === 'object') {
-          result[key] = this.hydrateDates(result[key] as Record<string, unknown>);
-        }
+        let rows = related as Record<string, unknown>[];
+        if (options.where) rows = rows.filter((item) => matchesWhere(item, options.where));
+        if (options.orderBy) rows = sortRecords(rows, options.orderBy);
+        result[key] = rows.map(shapeItem);
       } else {
-        result[key] = null;
+        result[key] = related ? shapeItem(related as Record<string, unknown>) : null;
       }
     }
 
     return result;
   }
 
-  private applyCount(record: Record<string, unknown>, spec: Record<string, unknown>): Record<string, number> {
+  private applyCount(
+    record: Record<string, unknown>,
+    spec: Record<string, unknown>,
+    modelName: string,
+  ): Record<string, number> {
     const counts: Record<string, number> = {};
-    const relations = MODEL_RELATIONS[this.modelName] ?? {};
-    for (const relationName of Object.keys(spec)) {
+    const relations = MODEL_RELATIONS[modelName] ?? {};
+    // Prisma shape is _count: { select: { relation: true } }; accept bare maps too.
+    const targets =
+      spec && typeof spec === 'object' && 'select' in spec
+        ? (spec['select'] as Record<string, unknown>)
+        : spec;
+    for (const relationName of Object.keys(targets ?? {})) {
       const relation = relations[relationName];
       if (!relation?.many) continue;
       const related = this.resolveRelation(record, relation) as Record<string, unknown>[];
@@ -189,13 +206,17 @@ export class JsonModelDelegate implements ModelDelegate {
     record: Record<string, unknown>,
     relation: RelationDef,
   ): Record<string, unknown> | Record<string, unknown>[] | null {
-    const localKey = relation.localKey ?? 'id';
-    const localValue = record[localKey];
     const target = this.allRecordsForModel(relation.model);
     if (relation.many) {
+      // has-many: the foreign key lives on the TARGET records.
+      const localValue = record[relation.localKey ?? 'id'];
       return target.filter((item) => item[relation.foreignKey] === localValue);
     }
-    return target.find((item) => item[relation.foreignKey] === localValue) ?? null;
+    // belongs-to: the foreign key lives on THIS record and points at the
+    // target's key (localKey, usually 'id').
+    const foreignValue = record[relation.foreignKey];
+    if (foreignValue == null) return null;
+    return target.find((item) => item[relation.localKey ?? 'id'] === foreignValue) ?? null;
   }
 
   private createLookup(): RelationLookup {

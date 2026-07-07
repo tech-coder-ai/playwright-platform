@@ -1,9 +1,11 @@
 import type { Locator, Page } from '@playwright/test';
 import {
   ACTION_TIMEOUT_MS,
+  CLICK_EFFECT_TIMEOUT_MS,
   FIRST_INTERACTION_TIMEOUT_MS,
   LOAD_STATE_TIMEOUT_MS,
   NAVIGATION_TIMEOUT_MS,
+  NETWORK_IDLE_TIMEOUT_MS,
   SKIP_VISIBILITY_TIMEOUT_MS,
   VISIBILITY_TIMEOUT_MS,
 } from './timeouts';
@@ -11,6 +13,12 @@ import {
 async function waitForPageReady(page: Page): Promise<void> {
   await page
     .waitForLoadState('domcontentloaded', { timeout: LOAD_STATE_TIMEOUT_MS })
+    .catch(() => undefined);
+  // Let the SPA fetch data and attach event handlers — elements can be
+  // visible before their click handlers exist, swallowing clicks. Capped and
+  // non-fatal: long-polling apps never reach networkidle.
+  await page
+    .waitForLoadState('networkidle', { timeout: NETWORK_IDLE_TIMEOUT_MS })
     .catch(() => undefined);
 }
 
@@ -69,15 +77,68 @@ export async function waitAndFill(
 
 /**
  * Opens a menu/drawer: waits for the trigger (e.g. a hamburger icon button),
- * clicks it, then waits until the revealed content is visible before returning.
+ * clicks it, then waits until the revealed content is visible.
+ *
+ * The click is retried: while the app is still hydrating, a visible trigger
+ * may have no handler attached yet, so the first click can land on dead DOM.
+ * If the menu content does not appear, we click again (checking first that
+ * the menu is not already open, so a retry cannot toggle it closed).
  */
 export async function openMenu(
   trigger: Locator,
   revealedContent: Locator,
-  options: { timeout?: number; firstInteraction?: boolean } = {},
+  options: { timeout?: number; firstInteraction?: boolean; attempts?: number } = {},
 ): Promise<void> {
-  await waitAndClick(trigger, options);
+  const attempts = options.attempts ?? 3;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    if (attempt > 1 && (await isVisible(revealedContent, 1_000))) return;
+    await waitAndClick(trigger, attempt === 1 ? options : { timeout: options.timeout });
+    if (await isVisible(revealedContent, CLICK_EFFECT_TIMEOUT_MS)) return;
+    console.warn(
+      `[retry] menu content did not appear after click (attempt ${attempt}/${attempts}) — UI may still be loading`,
+    );
+  }
+  // Final chance with the full wait so the failure message names the element.
   await revealedContent.waitFor({ state: 'visible', timeout: VISIBILITY_TIMEOUT_MS });
+}
+
+/**
+ * Clicks something that should navigate (link, submit, menu entry) and
+ * verifies the page actually moved on — by default, that the URL changed;
+ * pass expectedUrl to require a specific target. If the URL does not change
+ * (click swallowed by a still-loading UI), the click is retried.
+ */
+export async function clickAndWaitForUrl(
+  page: Page,
+  locator: Locator,
+  options: {
+    expectedUrl?: string | RegExp;
+    timeout?: number;
+    firstInteraction?: boolean;
+    attempts?: number;
+  } = {},
+): Promise<void> {
+  const attempts = options.attempts ?? 3;
+  const initialUrl = page.url();
+  const target = options.expectedUrl ?? ((url: URL) => url.toString() !== initialUrl);
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    await waitAndClick(locator, attempt === 1 ? options : { timeout: options.timeout });
+    try {
+      await page.waitForURL(target, { timeout: CLICK_EFFECT_TIMEOUT_MS, waitUntil: 'commit' });
+      await waitForPageReady(page);
+      return;
+    } catch {
+      if (attempt === attempts) {
+        throw new Error(
+          `Click did not navigate after ${attempts} attempts (URL still ${page.url()}) — the UI was likely still loading when the element became visible`,
+        );
+      }
+      console.warn(
+        `[retry] click did not change the URL (attempt ${attempt}/${attempts}) — UI may still be hydrating`,
+      );
+    }
+  }
 }
 
 /** Returns true if the locator becomes visible within the timeout. */

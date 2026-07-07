@@ -21,6 +21,50 @@ const WAIT_MARKERS = [
 /** Lines that interact with the page and therefore need a preceding wait. */
 const BARE_INTERACTION = /\.(click|fill|press|selectOption|check|uncheck)\(/;
 
+/** Helpers exported by tests/helpers — usable only when imported from '../helpers'. */
+const HELPER_NAMES = [
+  'login',
+  'navigate',
+  'waitForElement',
+  'isVisible',
+  'waitAndClick',
+  'waitAndFill',
+  'openMenu',
+  'clickAndWaitForUrl',
+  'clickIfVisible',
+  'clickRoleIfVisible',
+  'interactWhenVisible',
+  'runOptionalStep',
+  'fillForm',
+  'clickButton',
+  'assertToast',
+  'assertVisible',
+];
+
+/** Helper names called in the file but missing from its '../helpers' import. */
+function findUnimportedHelpers(content: string): string[] {
+  const imported = new Set<string>();
+  const importPattern = /import\s*\{([^}]+)\}\s*from\s*['"][^'"]*\/helpers['"]/g;
+  for (const match of content.matchAll(importPattern)) {
+    for (const name of match[1].split(',')) {
+      imported.add(name.trim().split(/\s+as\s+/).pop() ?? '');
+    }
+  }
+
+  const missing: string[] = [];
+  for (const helper of HELPER_NAMES) {
+    if (imported.has(helper)) continue;
+    // A call like `waitAndClick(...)` — not preceded by `.` (method access)
+    // and not a declaration of the same name.
+    const usage = new RegExp(`(?<![.\\w])${helper}\\s*\\(`);
+    const declaration = new RegExp(`(?:function|async)\\s+${helper}\\s*\\(|${helper}\\s*[:=]`);
+    if (usage.test(content) && !declaration.test(content)) {
+      missing.push(helper);
+    }
+  }
+  return missing;
+}
+
 export function extractPageObjectClassName(pageObject: string): string | undefined {
   return /export\s+(?:default\s+)?class\s+([A-Za-z_$][\w$]*)/.exec(pageObject)?.[1];
 }
@@ -131,6 +175,20 @@ export function collectValidationErrors(artifacts: GeneratedArtifactContents): s
     }
   }
 
+  // Helpers used without the '../helpers' import fail at load time, before
+  // any scenario runs.
+  for (const [label, content] of [
+    ['stepDefinitions', artifacts.stepDefinitions],
+    ['pageObject', artifacts.pageObject],
+  ] as const) {
+    const missing = findUnimportedHelpers(content);
+    if (missing.length > 0) {
+      errors.push(
+        `${label} uses ${missing.join(', ')} without importing from '../helpers' — add: import { ${missing.join(', ')} } from '../helpers';`,
+      );
+    }
+  }
+
   // If step definitions import from ../page-objects/, the imported name must be
   // the class the page object actually exports.
   const importMatch = /import\s*\{([^}]+)\}\s*from\s*['"](\.\.?\/page-objects\/[^'"]+)['"]/.exec(
@@ -195,7 +253,8 @@ export function collectLocatorFidelityWarnings(
   if (!recording) return warnings;
 
   const isActionLine = (line: string) =>
-    BARE_INTERACTION.test(line) || /\b(waitAndClick|waitAndFill|openMenu)\s*\(/.test(line);
+    BARE_INTERACTION.test(line) ||
+    /\b(waitAndClick|waitAndFill|openMenu|clickAndWaitForUrl)\s*\(/.test(line);
 
   for (const [label, content] of [
     ['stepDefinitions', artifacts.stepDefinitions],
