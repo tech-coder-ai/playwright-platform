@@ -1,10 +1,16 @@
 type OrderBy = Record<string, 'asc' | 'desc'> | Record<string, 'asc' | 'desc'>[];
 
-export function compareValues(a: unknown, b: unknown): number {
+/** Dates compare/match as ISO strings, so Date values and stored strings mix safely. */
+function comparable(value: unknown): unknown {
+  return value instanceof Date ? value.toISOString() : value;
+}
+
+export function compareValues(rawA: unknown, rawB: unknown): number {
+  const a = comparable(rawA);
+  const b = comparable(rawB);
   if (a == null && b == null) return 0;
   if (a == null) return -1;
   if (b == null) return 1;
-  if (a instanceof Date && b instanceof Date) return a.getTime() - b.getTime();
   if (typeof a === 'string' && typeof b === 'string') return a.localeCompare(b);
   if (typeof a === 'number' && typeof b === 'number') return a - b;
   if (typeof a === 'boolean' && typeof b === 'boolean') return Number(a) - Number(b);
@@ -32,13 +38,13 @@ function matchScalar(actual: unknown, expected: unknown): boolean {
   if (expected && typeof expected === 'object' && !Array.isArray(expected) && !(expected instanceof Date)) {
     const filter = expected as Record<string, unknown>;
     if ('in' in filter) {
-      return (filter['in'] as unknown[]).includes(actual);
+      return (filter['in'] as unknown[]).map(comparable).includes(comparable(actual));
     }
     if ('equals' in filter) {
-      return actual === filter['equals'];
+      return comparable(actual) === comparable(filter['equals']);
     }
   }
-  return actual === expected;
+  return comparable(actual) === comparable(expected);
 }
 
 export type RelationLookup = (

@@ -50,10 +50,11 @@ export class JsonModelDelegate implements ModelDelegate {
         record[timestamps.updated] = record[timestamps.updated] ?? now;
       }
     }
+    const stored = serializeDates(record);
     await this.store.mutate((snapshot) => {
-      this.collection(snapshot).push(record);
+      this.collection(snapshot).push(stored);
     });
-    return this.shapeRecord(record, args);
+    return this.shapeRecord(stored, args);
   }
 
   async createMany(args: { data: Record<string, unknown>[] }): Promise<{ count: number }> {
@@ -71,7 +72,7 @@ export class JsonModelDelegate implements ModelDelegate {
           record[timestamps.updated] = record[timestamps.updated] ?? now;
         }
       }
-      return record;
+      return serializeDates(record);
     });
     await this.store.mutate((snapshot) => {
       this.collection(snapshot).push(...records);
@@ -95,8 +96,9 @@ export class JsonModelDelegate implements ModelDelegate {
       if (timestamps?.updated) {
         next[timestamps.updated] = new Date();
       }
-      collection[index] = next;
-      updated = structuredClone(next);
+      const stored = serializeDates(next);
+      collection[index] = stored;
+      updated = structuredClone(stored);
     });
     return this.shapeRecord(updated!, args);
   }
@@ -113,7 +115,7 @@ export class JsonModelDelegate implements ModelDelegate {
       collection.splice(index, 1);
       this.cascadeDelete(snapshot, this.modelName, removed!);
     });
-    return removed!;
+    return this.hydrateDates(removed!);
   }
 
   async count(args: { where?: Record<string, unknown> } = {}): Promise<number> {
@@ -244,11 +246,14 @@ export class JsonModelDelegate implements ModelDelegate {
   private hydrateDates(record: Record<string, unknown>): Record<string, unknown> {
     const result: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(record)) {
-      if (value && typeof value === 'object' && !Array.isArray(value)) {
+      if (value instanceof Date) {
+        // Recursing into a Date via Object.entries would flatten it to {}.
+        result[key] = value;
+      } else if (value && typeof value === 'object' && !Array.isArray(value)) {
         result[key] = this.hydrateDates(value as Record<string, unknown>);
       } else if (Array.isArray(value)) {
         result[key] = value.map((item) =>
-          item && typeof item === 'object'
+          item && typeof item === 'object' && !(item instanceof Date)
             ? this.hydrateDates(item as Record<string, unknown>)
             : item,
         );
@@ -260,4 +265,31 @@ export class JsonModelDelegate implements ModelDelegate {
     }
     return result;
   }
+}
+
+/**
+ * Deep-converts Date values to ISO strings before a record enters the
+ * snapshot, so the in-memory store always holds the same JSON-safe shape it
+ * has after a reload from disk (consistent sorting/filtering either way).
+ */
+function serializeDates(record: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(record)) {
+    if (value instanceof Date) {
+      result[key] = value.toISOString();
+    } else if (Array.isArray(value)) {
+      result[key] = value.map((item) =>
+        item instanceof Date
+          ? item.toISOString()
+          : item && typeof item === 'object'
+            ? serializeDates(item as Record<string, unknown>)
+            : item,
+      );
+    } else if (value && typeof value === 'object') {
+      result[key] = serializeDates(value as Record<string, unknown>);
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
 }
