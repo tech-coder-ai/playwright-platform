@@ -19,6 +19,35 @@ export const UNIT_TEST_PROMPT_PLACEHOLDERS = {
   source: '{{SOURCE_CODE}}',
 } as const;
 
+/** Research-backed rules prepended to every template (LLM studies + 2025/2026 reviews). */
+export const SHARED_PROMPT_RULES = `
+SHARED RULES (apply to every generation — based on LLM unit-test research and practitioner reviews):
+
+OUTPUT:
+- Deliver runnable test code first; analysis tables after the code (not instead of it).
+- Do NOT invent imports, packages, methods, or config that are not in the source or stated stack.
+- Do NOT mock pure functions or same-package utilities — use real implementations.
+- Do NOT write tests that only call a method without asserting behaviour.
+- Do NOT test trivial getters/setters, empty record/DTO classes, or framework boilerplate unless they contain logic.
+
+MANDATORY EDGE VALUES (LLMs systematically omit these without explicit prompting):
+- null / undefined / None, empty string, empty array/collection, whitespace-only input
+- boundary min/max, off-by-one, zero, negative numbers (where applicable)
+- NaN and Infinity for floating-point paths
+- invalid types and malformed input that should throw or return errors
+
+MOCKING:
+- Mock ONLY external I/O: HTTP, DB, filesystem, clock, env, third-party SDKs.
+- Never mock the unit under test or in-package pure helpers.
+
+QUALITY:
+- One regression-style test when comments or names suggest a prior bug or edge case.
+- Name tests so failure messages identify the scenario (should X when Y).
+- After the test code, list: (a) coverage risks you could not test, (b) exact command to run coverage, (c) what to inspect in the coverage report for missed branches.
+
+TWO-PASS TIP: For large classes, run the "boundary & error only" prompt first, then the comprehensive prompt for happy paths — deeper coverage than a single pass.
+`;
+
 export function buildUnitTestPrompt(
   template: UnitTestPromptTemplate,
   target: string,
@@ -32,10 +61,12 @@ export function buildUnitTestPrompt(
     ? `\n\nAdditional context from the developer:\n${options.additionalContext.trim()}`
     : '';
 
-  return template.promptTemplate
+  const body = template.promptTemplate
     .replaceAll(UNIT_TEST_PROMPT_PLACEHOLDERS.target, target.trim() || '[file-or-module-name]')
     .replaceAll(UNIT_TEST_PROMPT_PLACEHOLDERS.source, sourceBlock)
     .replaceAll(UNIT_TEST_PROMPT_PLACEHOLDERS.context, contextBlock);
+
+  return `${SHARED_PROMPT_RULES}\n\n---\n\n${body}`;
 }
 
 export const UNIT_TEST_PROMPTS: UnitTestPromptTemplate[] = [
@@ -45,31 +76,93 @@ export const UNIT_TEST_PROMPTS: UnitTestPromptTemplate[] = [
     language: 'angular',
     name: 'Comprehensive Jasmine/Karma suite',
     description:
-      'Full branch and template coverage with TestBed, spies, async handling, and enforced 80%+ Karma thresholds. Best all-round prompt for components and services.',
-    bestFor: ['Components', 'Services', 'Pipes', 'Directives'],
+      'Full branch and template coverage with TestBed, spies, async handling, and 80%+ thresholds. Use for Karma-based projects; pair with Vitest prompt for new Angular CLI apps.',
+    bestFor: ['Components', 'Services', 'Pipes', 'Directives', 'Karma legacy projects'],
     framework: 'Jasmine + Karma + Angular TestBed',
     coverageTarget: '≥ 80% statements, branches, functions, lines',
-    runCommand: 'ng test --no-watch --code-coverage',
+    runCommand: 'ng test --no-watch --coverage',
     coverageCommand:
-      'ng test --no-watch --code-coverage --browsers=ChromeHeadless (enforce thresholds in karma.conf.js coverageReporter.check.global)',
+      'ng test --no-watch --coverage (add coverage thresholds in angular.json test.options.coverage or karma.conf.js)',
     promptTemplate: `You are a senior Angular test engineer specializing in Jasmine, Karma, and Angular TestBed.
 
 Generate a production-ready unit test suite for: {{TARGET}}
 
 Requirements — treat these as mandatory:
-1. Coverage: achieve at least 80% on statements, branches, functions, and lines. Map every public method, @Input/@Output, lifecycle hook, template binding, and conditional branch to at least one test.
+1. Coverage: achieve at least 80% on statements, branches, functions, and lines. Map every public method, @Input/@Output (or input()/output() signals), lifecycle hook, template binding, and conditional branch to at least one test.
 2. Positive scenarios: happy-path behaviour with typical valid inputs, successful HTTP responses, emitted events, and expected DOM state after detectChanges().
 3. Negative scenarios: invalid inputs, empty/null/undefined values, rejected promises, HTTP 4xx/5xx errors, guard failures, and user actions that should NOT trigger side effects.
-4. Edge cases: boundary values, empty collections, duplicate clicks, rapid successive calls, and off-by-one conditions.
+4. Edge cases: boundary values, empty collections, duplicate clicks, rapid successive calls, off-by-one, NaN where numeric.
 5. Async: use fakeAsync/tick, waitForAsync, or async/await correctly. Never leave outstanding timers or subscriptions.
-6. Mocking: mock all injected services with jasmine.createSpyObj or provide useValue/useClass stubs. Use HttpClientTestingModule for HTTP. Verify spy call counts and arguments with toHaveBeenCalledWith.
-7. Template/DOM: use fixture.debugElement.query(By.css(...)) for critical UI interactions; assert text content, disabled state, and class bindings.
-8. Structure: one describe per class under test; nested describe per method or behaviour group; descriptive it('should ... when ...') names.
-9. Output: a single complete .spec.ts file with all imports. No placeholders or TODO tests. Include karma coverageReporter.check snippet if thresholds are missing from karma.conf.js.
+6. Mocking: mock injected services with jasmine.createSpyObj or useValue/useClass. Use HttpClientTestingModule for HTTP. Do NOT mock in-package pure helpers.
+7. Template/DOM: use fixture.debugElement.query(By.css(...)); assert text, disabled state, class bindings.
+8. Signals (Angular 17+): test signal() reads, computed(), and effects where present.
+9. Structure: describe per class; nested describe per method; it('should ... when ...') names; @DisplayName-style readable descriptions in comments.
+10. Output: one complete .spec.ts. No placeholders. Include coverage threshold config snippet if missing.
 
-After the test file, provide:
-- A coverage checklist table: Branch/Method | Positive test | Negative test | Edge case
-- Commands to run: ng test --no-watch --code-coverage
+After the test file:
+- Coverage checklist table: Branch/Method | Positive | Negative | Edge
+- Command: ng test --no-watch --coverage
+
+{{SOURCE_CODE}}{{ADDITIONAL_CONTEXT}}`,
+  },
+  {
+    id: 'angular-vitest',
+    language: 'angular',
+    name: 'Vitest + TestBed (Angular 17+ default)',
+    description:
+      'Recommended for new Angular CLI projects. Vitest in Node/jsdom, TestBed, vi.fn() mocks, signal/input() testing, and ng test --coverage per angular.dev.',
+    bestFor: ['New Angular projects', 'Signals & standalone components', 'Fast CI unit tests'],
+    framework: 'Vitest + Angular TestBed + jsdom',
+    coverageTarget: '≥ 80% with ng test --coverage',
+    runCommand: 'ng test --no-watch --coverage',
+    coverageCommand: 'ng test --no-watch --coverage (reports in coverage/ directory)',
+    promptTemplate: `You are a senior Angular v17+ test engineer using Vitest (default in modern Angular CLI) and TestBed.
+
+Generate unit tests for: {{TARGET}}
+
+Stack: Vitest + @angular/build:unit-test + TestBed + jsdom (NOT Karma unless stated in additional context).
+
+Requirements:
+1. Use import { describe, it, expect, beforeEach, vi } from 'vitest' where needed; Angular TestBed for components/services.
+2. Mock dependencies with vi.fn() / vi.mock() for external modules only — not same-package pure functions.
+3. Test signals: signal(), computed(), input(), output(), effect() — set inputs via fixture.componentRef.setInput() where applicable.
+4. Test OnPush components: verify detectChanges() after state updates.
+5. HTTP: use HttpClientTestingModule + HttpTestingController (flush, expectOne, verify).
+6. Coverage ≥ 80% branches: every if/else, ternary, optional chaining path, and @if/@for template branches.
+7. Explicit edge tests: null, undefined, empty string, empty array, boundary values.
+8. No test without assertions. No testing trivial getters.
+
+Output one complete .spec.ts. After code, list missed-branch risks and run: ng test --no-watch --coverage
+
+{{SOURCE_CODE}}{{ADDITIONAL_CONTEXT}}`,
+  },
+  {
+    id: 'angular-boundary',
+    language: 'angular',
+    name: 'Boundary & error pass (2nd pass)',
+    description:
+      'Research-backed second pass: ONLY null, empty, invalid, HTTP error, and async failure tests — no happy paths. Run after comprehensive or Vitest prompt.',
+    bestFor: ['Gap-filling after first generation', 'Legacy code with weak error coverage'],
+    framework: 'Vitest or Jasmine — match your project',
+    coverageTarget: 'Close branch gaps in error paths',
+    runCommand: 'ng test --no-watch --coverage',
+    coverageCommand: 'ng test --no-watch --coverage — inspect coverage/ for red branches',
+    promptTemplate: `You are a senior Angular test engineer. SECOND PASS ONLY — do NOT write happy-path tests.
+
+Target: {{TARGET}}
+
+Write ONLY tests for boundary and error inputs:
+- null, undefined, empty string, empty array, whitespace-only
+- invalid @Input / form values, validation failures
+- HTTP 400/401/404/500 via HttpTestingController error responses
+- rejected Promises, thrown errors in services, guard returning false
+- duplicate submit, rapid double-click, expired session scenarios
+- NaN / Infinity on numeric bindings if applicable
+
+Use TestBed + Vitest (vi.fn) or Jasmine (createSpyObj) matching the existing test style in additional context.
+Each test: Given / When / Then comment. Assert error UI, thrown errors, or fallback behaviour — not just "does not throw".
+
+Output only the additional test cases (new it() blocks or a supplemental describe). State which branches these target.
 
 {{SOURCE_CODE}}{{ADDITIONAL_CONTEXT}}`,
   },
@@ -82,8 +175,8 @@ After the test file, provide:
     bestFor: ['UI components', 'Forms', 'Event handlers'],
     framework: 'Jasmine + TestBed + ComponentFixture',
     coverageTarget: '≥ 85% on component class + template branches',
-    runCommand: 'ng test --include=**/{{TARGET}}.spec.ts --no-watch --code-coverage',
-    coverageCommand: 'ng test --no-watch --code-coverage',
+    runCommand: 'ng test --no-watch --coverage',
+    coverageCommand: 'ng test --no-watch --coverage',
     promptTemplate: `You are an expert Angular component tester. Write Jasmine/Karma tests for the component: {{TARGET}}
 
 Focus on component-specific quality:
@@ -110,8 +203,8 @@ Deliver one complete .spec.ts file. No skipped tests. Target ≥ 85% branch cove
     bestFor: ['Services', 'Interceptors', 'Resolvers', 'State services'],
     framework: 'Jasmine + HttpClientTestingModule',
     coverageTarget: '≥ 90% on service methods and error paths',
-    runCommand: 'ng test --no-watch --code-coverage',
-    coverageCommand: 'ng test --no-watch --code-coverage',
+    runCommand: 'ng test --no-watch --coverage',
+    coverageCommand: 'ng test --no-watch --coverage',
     promptTemplate: `You are a senior Angular engineer writing service unit tests for: {{TARGET}}
 
 Use Jasmine + TestBed + HttpClientTestingModule (or HttpTestingController).
@@ -146,8 +239,8 @@ Output one complete .spec.ts. Include a brief table mapping each service method 
     ],
     framework: 'Jasmine + @morgan-stanley/ts-mocking-bird',
     coverageTarget: '≥ 80% line and branch (no TestBed overhead)',
-    runCommand: 'ng test --no-watch --code-coverage',
-    coverageCommand: 'ng test --no-watch --code-coverage',
+    runCommand: 'ng test --no-watch --coverage',
+    coverageCommand: 'ng test --no-watch --coverage',
     promptTemplate: `You are a senior Angular/TypeScript test engineer. Write unit tests for: {{TARGET}}
 
 IMPORTANT — do NOT use Angular TestBed, ComponentFixture, configureTestingModule, or HttpClientTestingModule.
@@ -217,7 +310,7 @@ Output:
     framework: 'JUnit 5 + Mockito + JaCoCo',
     coverageTarget: '≥ 80% line and branch (JaCoCo)',
     runCommand: './gradlew test jacocoTestReport',
-    coverageCommand: './gradlew test jacocoTestReport && open build/reports/jacoco/test/html/index.html',
+    coverageCommand: './gradlew test jacocoTestReport  # Maven: mvn clean test jacoco:report',
     promptTemplate: `You are a senior Java engineer writing unit tests with JUnit 5 and Mockito.
 
 Generate comprehensive tests for: {{TARGET}}
@@ -229,19 +322,83 @@ Mandatory coverage goals (JaCoCo):
 
 Test design:
 1. Positive (happy path): valid inputs, expected return values, verify mock interactions with Mockito.verify().
-2. Negative: invalid arguments → assert throws correct exception type and message; verify no further interactions.
-3. Edge: null, empty collections, boundary integers, max/min strings, duplicate calls, optional empty.
+2. Negative: invalid arguments → assertThrows with type AND message fragment; verify no further interactions.
+3. Edge: null, empty collections, boundary integers, max/min strings, duplicate calls, Optional.empty().
 4. Use @ExtendWith(MockitoExtension.class), @Mock, @InjectMocks.
-5. Use @ParameterizedTest + @CsvSource or @MethodSource for input combinations.
-6. Naming: given<Precondition>_when<Action>_then<ExpectedResult>.
-7. Use ArgumentMatchers (eq, any, anyString) correctly; avoid unnecessary stubbing.
-8. For static methods use mockStatic in @BeforeEach or try-with-resources per test.
-9. Do NOT test private methods directly — test through public API.
-10. Output complete test class(es) with package declaration and imports. No // TODO tests.
+5. Use @DisplayName("full English sentence") on every @Test and @ParameterizedTest.
+6. Use @ParameterizedTest + @CsvSource or @MethodSource for input combinations.
+7. Use assertAll() when verifying multiple properties on one object.
+8. Naming: given<Precondition>_when<Action>_then<ExpectedResult>.
+9. Use ArgumentMatchers correctly; avoid unnecessary stubbing.
+10. For static methods use mockStatic in try-with-resources per test.
+11. Do NOT test private methods, records without logic, main(), or trivial getters/setters.
+12. Do NOT use PowerMock or reflection hacks.
+13. Output complete test class(es) with package and imports. No // TODO tests.
 
 After code, include:
 | Method | Positive | Negative | Edge |
-and Gradle JaCoCo minimum threshold snippet for 80% verification.
+Gradle: ./gradlew test jacocoTestReport | Maven: mvn clean test jacoco:report
+JaCoCo fail-under 80% snippet for build.gradle or pom.xml.
+
+{{SOURCE_CODE}}{{ADDITIONAL_CONTEXT}}`,
+  },
+  {
+    id: 'java-maven-spring',
+    language: 'java',
+    name: 'Maven + Spring Boot slice tests',
+    description:
+      'Mark Pollack-style hardened prompt: read pom.xml first, prefer @WebMvcTest/@DataJpaTest slices, Maven JaCoCo, iterate until 80%.',
+    bestFor: ['Maven Spring Boot', 'REST controllers', 'JPA repositories', 'Services'],
+    framework: 'JUnit 5 + Mockito + Spring slice tests + Maven',
+    coverageTarget: '≥ 80% line (JaCoCo HTML report)',
+    runCommand: 'mvn clean test jacoco:report',
+    coverageCommand: 'mvn clean test jacoco:report && open target/site/jacoco/index.html',
+    promptTemplate: `You are a senior Spring Boot engineer writing Maven-based tests for: {{TARGET}}
+
+WORKFLOW:
+1. Infer Spring Boot version from pom.xml (affects MockMvc vs RestTestClient, JUnit version).
+2. Classify target: REST controller → @WebMvcTest; JPA repo → @DataJpaTest; service logic → plain JUnit + Mockito (no full @SpringBootTest).
+3. Write meaningful behaviour tests — not line-padding tests.
+4. After generating, state: mvn compile && mvn test && mvn jacoco:report
+
+Rules:
+- @WebMvcTest for controllers (MockMvc on Boot 3.x); mock services with @MockBean.
+- @DataJpaTest + TestEntityManager for repositories.
+- @ExtendWith(MockitoExtension.class) + @InjectMocks for pure services.
+- assertThrows for validation and not-found paths.
+- Do NOT use @SpringBootTest when a slice test suffices.
+- Do NOT test records, main(), auto-config internals, or trivial getters.
+- Target ≥ 80% line coverage; list gaps to fill from target/site/jacoco/index.html.
+
+{{SOURCE_CODE}}{{ADDITIONAL_CONTEXT}}`,
+  },
+  {
+    id: 'java-boundary',
+    language: 'java',
+    name: 'Boundary & exception pass (2nd pass)',
+    description:
+      'Second pass: ONLY null, empty, boundary, and exception tests — no happy paths. Fills gaps LLMs typically miss.',
+    bestFor: ['Validators', 'Services', 'After comprehensive prompt'],
+    framework: 'JUnit 5 + @ParameterizedTest + AssertJ',
+    coverageTarget: 'Branch gaps in error paths',
+    runCommand: './gradlew test --tests "*{{TARGET}}*"  # Maven: mvn test -Dtest={{TARGET}}Test',
+    coverageCommand: './gradlew test jacocoTestReport',
+    promptTemplate: `You are a Java test engineer. SECOND PASS ONLY — write NO happy-path tests.
+
+Target: {{TARGET}}
+
+Use @ParameterizedTest with @CsvSource or @MethodSource for:
+- null, empty string, blank/whitespace, empty List/Optional
+- Integer.MIN_VALUE, MAX_VALUE, zero, negative (where applicable)
+- invalid enum values, malformed IDs, duplicate keys
+
+For each exception path use assertThrows with:
+- exact exception type
+- message fragment match
+
+Use @DisplayName on every test. AssertJ preferred. verify(mock, never()) when invalid input should short-circuit.
+
+Output supplemental test methods only. List which branches each test covers.
 
 {{SOURCE_CODE}}{{ADDITIONAL_CONTEXT}}`,
   },
@@ -317,7 +474,7 @@ Output: complete test class, no main method, no placeholders. Include a branch c
     framework: 'pytest + unittest.mock + pytest-cov',
     coverageTarget: '≥ 80% line and branch',
     runCommand: 'pytest tests/test_{{TARGET}}.py -v',
-    coverageCommand: 'pytest tests/test_{{TARGET}}.py --cov={{TARGET}} --cov-report=term-missing --cov-fail-under=80',
+    coverageCommand: 'pytest tests/test_{{TARGET}}.py --cov={{TARGET}} --cov-branch --cov-report=term-missing --cov-fail-under=80',
     promptTemplate: `You are a senior Python test engineer expert in pytest, unittest.mock, and coverage analysis.
 
 Generate a comprehensive unit test suite for: {{TARGET}}
@@ -331,23 +488,56 @@ STEP 2 — COVERAGE MAP (table required):
 | Unit | Happy path | Edge case | Exception | Mock/patch | Negative input | Priority |
 Categories: ✅ Happy Path | ❌ Edge (empty/None/boundary) | 💥 Exception | 🔁 Mock external deps | 🧪 Negative/invalid input
 Priorities: 🔴 Must Have | 🟡 Should Have | 🔵 Nice to Have
-Target: ≥ 80% line and branch coverage (≥ 90% for critical paths).
+Target: ≥ 80% line AND branch coverage (enable branch=true in pyproject.toml).
 
 STEP 3 — GENERATE TESTS:
 - Framework: pytest only (unittest.mock for mocking).
 - Strict AAA pattern with comments: # Arrange / # Act / # Assert
 - Naming: test_<function>_<scenario>_<expected_outcome>
-- One test file sectioned by function/class.
-- Mock ONLY external I/O (DB, HTTP, filesystem, env vars, clock). Never mock pure logic.
-- Use @pytest.fixture for shared setup and @pytest.mark.parametrize for input variants.
-- Positive: normal inputs return expected values.
-- Negative: invalid types, out-of-range values, permission errors — use pytest.raises with match=.
-- Edge: None, [], {}, 0, "", max size, unicode, concurrent calls.
+- Mock ONLY external I/O (DB, HTTP, filesystem, env vars, clock). Never mock in-package pure logic.
+- Use @pytest.fixture and @pytest.mark.parametrize.
+- Explicit tests for: None, [], {}, 0, "", max size, unicode, NaN, invalid types.
+- pytest.raises(..., match=...) for exceptions with message fragments.
 
-STEP 4 — SUMMARY CARD:
-Total tests | Estimated line % | Estimated branch % | Gaps remaining
+STEP 4 — CONFIG SNIPPET (include if project lacks it):
+[tool.coverage.run]
+branch = true
+source = ["src/your_package"]
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
 
-Output runnable pytest code only in the test file section (no placeholders). Include pyproject.toml or pytest.ini cov-fail-under=80 snippet if missing.
+STEP 5 — SUMMARY: Total tests | line % estimate | branch % estimate | gaps remaining
+Run: pytest --cov --cov-branch --cov-report=term-missing --cov-fail-under=80
+
+{{SOURCE_CODE}}{{ADDITIONAL_CONTEXT}}`,
+  },
+  {
+    id: 'python-boundary',
+    language: 'python',
+    name: 'Boundary & exception pass (2nd pass)',
+    description:
+      'Second pass: ONLY None, empty, invalid, permission, and pytest.raises tests. Research shows LLMs skip these without a dedicated pass.',
+    bestFor: ['Gap-filling', 'Validators', 'Data transforms', 'After comprehensive prompt'],
+    framework: 'pytest + @pytest.mark.parametrize',
+    coverageTarget: 'Uncovered error branches',
+    runCommand: 'pytest tests/test_{{TARGET}}.py -v --tb=short',
+    coverageCommand: 'pytest --cov={{TARGET}} --cov-branch --cov-report=term-missing',
+    promptTemplate: `You are a Python test engineer. SECOND PASS ONLY — do NOT write happy-path tests.
+
+Target: {{TARGET}}
+
+Write ONLY boundary and error tests using pytest:
+- None, "", [], {}, 0, negative, max int, very long string, unicode edge cases
+- NaN / inf for floats where applicable
+- invalid types → TypeError/ValueError with match=
+- permission / IOError paths with unittest.mock.patch on external I/O
+- @pytest.mark.parametrize tables for input combinations
+
+Each test must use pytest.raises or assert on error return values — not bare execution.
+Comment each test: # given / # when / # then
+
+Output supplemental test functions only. Map each test to the branch it covers.
 
 {{SOURCE_CODE}}{{ADDITIONAL_CONTEXT}}`,
   },
@@ -361,7 +551,7 @@ Output runnable pytest code only in the test file section (no placeholders). Inc
     framework: 'pytest + pytest-mock',
     coverageTarget: '≥ 85% per public method',
     runCommand: 'pytest tests/test_{{TARGET}}.py -v --tb=short',
-    coverageCommand: 'pytest --cov={{TARGET}} --cov-report=term-missing --cov-fail-under=85',
+    coverageCommand: 'pytest --cov={{TARGET}} --cov-branch --cov-report=term-missing --cov-fail-under=85',
     promptTemplate: `You are a Python TDD practitioner. Write pytest tests for the class/module: {{TARGET}}
 
 For EACH public method:
@@ -392,7 +582,7 @@ Deliver one complete test file. Every test must have at least one meaningful ass
     framework: 'pytest + httpx + pytest-asyncio',
     coverageTarget: '≥ 80% on route handlers and error paths',
     runCommand: 'pytest tests/test_{{TARGET}}.py -v',
-    coverageCommand: 'pytest tests/test_{{TARGET}}.py --cov=app --cov-report=term-missing --cov-fail-under=80',
+    coverageCommand: 'pytest tests/test_{{TARGET}}.py --cov=app --cov-branch --cov-report=term-missing --cov-fail-under=80',
     promptTemplate: `You are a FastAPI testing specialist. Write pytest tests for the endpoint/module: {{TARGET}}
 
 Use httpx.AsyncClient with app=fastapi_app and pytest.mark.asyncio.

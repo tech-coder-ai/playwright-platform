@@ -330,10 +330,11 @@ import {
             <div>
               <h3>Tips</h3>
               <ul class="tips-list">
-                <li>Paste the generated prompt into Cursor, ChatGPT, or Claude along with your source file.</li>
+                <li><strong>Best results:</strong> paste full source code and your framework version (e.g. Angular 19 + Vitest, Java 21 + Maven).</li>
+                <li><strong>Two-pass workflow:</strong> run Comprehensive first, then Boundary & error pass to close branch gaps research shows LLMs miss.</li>
                 <li>Review generated tests against the spec — AI validates behaviour, not intent.</li>
-                <li>Run the coverage command and add tests for any missed branches shown in the report.</li>
-                <li>Enforce thresholds in CI (Karma check, JaCoCo rules, pytest --cov-fail-under).</li>
+                <li>Run the coverage command and add tests for red branches in the HTML/term-missing report.</li>
+                <li>Enforce thresholds in CI (Karma/Vitest coverage, JaCoCo, pytest --cov-fail-under).</li>
               </ul>
             </div>
           </div>
@@ -367,7 +368,7 @@ export class UnitTestPromptsComponent {
   readonly labels = UNIT_TEST_LANGUAGE_LABELS;
 
   readonly language = signal<UnitTestLanguage>('angular');
-  readonly selectedPromptId = signal<string>(UNIT_TEST_PROMPTS[0].id);
+  readonly selectedPromptId = signal<string>('angular-vitest');
   readonly copyFeedback = signal<string | null>(null);
 
   readonly form = this.fb.nonNullable.group({
@@ -413,9 +414,13 @@ export class UnitTestPromptsComponent {
 
   selectLanguage(language: UnitTestLanguage): void {
     this.language.set(language);
-    const first = getUnitTestPromptsForLanguage(language)[0];
-    if (first) {
-      this.selectedPromptId.set(first.id);
+    const prompts = getUnitTestPromptsForLanguage(language);
+    const preferred =
+      language === 'angular'
+        ? prompts.find((p) => p.id === 'angular-vitest') ?? prompts[0]
+        : prompts.find((p) => p.id.includes('comprehensive')) ?? prompts[0];
+    if (preferred) {
+      this.selectedPromptId.set(preferred.id);
     }
   }
 
