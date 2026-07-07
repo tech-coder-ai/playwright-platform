@@ -4,6 +4,7 @@ import {
   collectLocatorFidelityWarnings,
   collectResilienceWarnings,
   collectValidationErrors,
+  injectMissingHelperImports,
 } from './validate-artifacts';
 
 function normalizeGeneratedContent(content: string): string {
@@ -119,8 +120,13 @@ function parseGeneratedJson(text: string): Omit<GeneratedArtifacts, 'rawRecordin
     const parsed = JSON.parse(jsonText) as Record<string, unknown>;
     return {
       featureFile: normalizeGeneratedContent(String(parsed['featureFile'] ?? '')),
-      stepDefinitions: normalizeGeneratedContent(String(parsed['stepDefinitions'] ?? '')),
-      pageObject: normalizeGeneratedContent(String(parsed['pageObject'] ?? '')),
+      // Fix missing helper imports mechanically — LLMs keep forgetting them.
+      stepDefinitions: injectMissingHelperImports(
+        normalizeGeneratedContent(String(parsed['stepDefinitions'] ?? '')),
+      ),
+      pageObject: injectMissingHelperImports(
+        normalizeGeneratedContent(String(parsed['pageObject'] ?? '')),
+      ),
       summary: String(parsed['summary'] ?? ''),
     };
   } catch (error) {
@@ -146,4 +152,5 @@ export {
   collectResilienceWarnings,
   collectLocatorFidelityWarnings,
   extractPageObjectClassName,
+  injectMissingHelperImports,
 } from './validate-artifacts';

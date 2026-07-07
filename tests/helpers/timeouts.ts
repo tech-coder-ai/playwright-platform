@@ -29,6 +29,9 @@ export const NETWORK_IDLE_TIMEOUT_MS = 30_000;
 /** How long a click gets to produce its effect (URL change, menu opening) before we retry it. */
 export const CLICK_EFFECT_TIMEOUT_MS = 10_000;
 
+/** How long after any click we watch for SOME page reaction (DOM mutation / URL change) before re-clicking. */
+export const CLICK_REACTION_TIMEOUT_MS = 3_000;
+
 /** Budget for loading indicators (spinners/overlays/skeletons) to disappear after navigation. */
 export const APP_READY_TIMEOUT_MS = 180_000;
 

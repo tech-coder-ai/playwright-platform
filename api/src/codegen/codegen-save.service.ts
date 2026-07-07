@@ -3,6 +3,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { DatabaseService } from '../database/database.service';
 import { getTestsRoot } from '../test-runner/paths.util';
+import { injectMissingHelperImports } from '@playwright-platform/codegen-engine';
 import { normalizeGeneratedContent } from '../common/normalize-generated-content.util';
 import { CodegenGenerateService } from './codegen-generate.service';
 import type { SaveGeneratedTestDto, SavedGeneratedTestResult } from '@playwright-platform/shared-types';
@@ -45,12 +46,14 @@ export class CodegenSaveService {
     );
     await fs.writeFile(
       path.join(testsRoot, stepDefinitionsPath),
-      rewritePageObjectImport(normalizeGeneratedContent(dto.stepDefinitions), slug),
+      injectMissingHelperImports(
+        rewritePageObjectImport(normalizeGeneratedContent(dto.stepDefinitions), slug),
+      ),
       'utf8',
     );
     await fs.writeFile(
       path.join(testsRoot, pageObjectPath),
-      normalizeGeneratedContent(dto.pageObject),
+      injectMissingHelperImports(normalizeGeneratedContent(dto.pageObject)),
       'utf8',
     );
 

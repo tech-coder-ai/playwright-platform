@@ -1,5 +1,6 @@
 import { buildPageObjectPrompt } from './prompts/page-object-from-codegen';
 import { completePrompt, extractJsonBlock, resolveLlmModel } from './llm-client';
+import { injectMissingHelperImports } from './validate-artifacts';
 
 export interface GeneratedPageObjectArtifacts {
   pageObject: string;
@@ -68,7 +69,9 @@ function parsePageObjectJson(text: string): Omit<GeneratedPageObjectArtifacts, '
   try {
     const parsed = JSON.parse(jsonText) as Record<string, unknown>;
     return {
-      pageObject: normalizeGeneratedContent(String(parsed['pageObject'] ?? '')),
+      pageObject: injectMissingHelperImports(
+        normalizeGeneratedContent(String(parsed['pageObject'] ?? '')),
+      ),
       className: String(parsed['className'] ?? ''),
       summary: String(parsed['summary'] ?? ''),
     };

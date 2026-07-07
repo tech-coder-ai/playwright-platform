@@ -3,6 +3,7 @@ import {
   ACTION_TIMEOUT_MS,
   APP_READY_TIMEOUT_MS,
   CLICK_EFFECT_TIMEOUT_MS,
+  CLICK_REACTION_TIMEOUT_MS,
   FIRST_INTERACTION_TIMEOUT_MS,
   LOAD_STATE_TIMEOUT_MS,
   LOADING_INDICATOR_TIMEOUT_MS,
@@ -138,17 +139,83 @@ export async function waitForElement(
  * exact codegen-recorded chains (icon buttons without ids, .first(), CSS)
  * work unchanged. Use firstInteraction for the first action after navigate().
  */
+/**
+ * Clicks and reports whether the page visibly reacted (any DOM mutation or a
+ * URL change within CLICK_REACTION_TIMEOUT_MS). A click on an element whose
+ * handlers have not attached yet (app still hydrating) produces no reaction.
+ */
+async function clickAndDetectReaction(locator: Locator): Promise<boolean> {
+  const page = locator.page();
+  const beforeUrl = page.url();
+
+  try {
+    await page.evaluate(() => {
+      const w = window as unknown as {
+        __pwReactions?: number;
+        __pwReactionObserver?: MutationObserver;
+      };
+      w.__pwReactions = 0;
+      w.__pwReactionObserver?.disconnect();
+      const observer = new MutationObserver(() => {
+        w.__pwReactions = (w.__pwReactions ?? 0) + 1;
+      });
+      observer.observe(document.documentElement, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        characterData: true,
+      });
+      w.__pwReactionObserver = observer;
+    });
+  } catch {
+    // Cannot instrument (e.g. page mid-navigation) — click without detection.
+    await locator.click({ timeout: ACTION_TIMEOUT_MS });
+    return true;
+  }
+
+  await locator.click({ timeout: ACTION_TIMEOUT_MS });
+
+  const deadline = Date.now() + CLICK_REACTION_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if (page.url() !== beforeUrl) return true;
+    try {
+      const mutations = await page.evaluate(
+        () => (window as unknown as { __pwReactions?: number }).__pwReactions ?? 0,
+      );
+      if (mutations > 0) return true;
+    } catch {
+      return true; // context destroyed — the click navigated
+    }
+    await page.waitForTimeout(150);
+  }
+  return false;
+}
+
 export async function waitAndClick(
   locator: Locator,
-  options: { timeout?: number; firstInteraction?: boolean } = {},
+  options: { timeout?: number; firstInteraction?: boolean; attempts?: number } = {},
 ): Promise<void> {
   const timeout =
     options.timeout ??
     (options.firstInteraction ? FIRST_INTERACTION_TIMEOUT_MS : VISIBILITY_TIMEOUT_MS);
+  const attempts = options.attempts ?? 3;
+
   await ensureNotLoading(locator.page());
   await locator.waitFor({ state: 'visible', timeout });
-  await ensureNotLoading(locator.page());
-  await locator.click({ timeout: ACTION_TIMEOUT_MS });
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    await ensureNotLoading(locator.page());
+    if (await clickAndDetectReaction(locator)) return;
+    if (attempt < attempts) {
+      console.warn(
+        `[retry] click produced no page reaction (attempt ${attempt}/${attempts}) — handlers may not be attached yet, re-clicking`,
+      );
+    } else {
+      console.warn(
+        `[warn] click never produced a visible page reaction after ${attempts} attempts — continuing, but the element may be inert`,
+      );
+    }
+  }
 }
 
 /** Waits for the locator to be visible, then fills it. */

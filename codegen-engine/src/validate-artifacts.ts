@@ -43,7 +43,7 @@ const HELPER_NAMES = [
 ];
 
 /** Helper names called in the file but missing from its '../helpers' import. */
-function findUnimportedHelpers(content: string): string[] {
+export function findUnimportedHelpers(content: string): string[] {
   const imported = new Set<string>();
   const importPattern = /import\s*\{([^}]+)\}\s*from\s*['"][^'"]*\/helpers['"]/g;
   for (const match of content.matchAll(importPattern)) {
@@ -68,6 +68,32 @@ function findUnimportedHelpers(content: string): string[] {
 
 export function extractPageObjectClassName(pageObject: string): string | undefined {
   return /export\s+(?:default\s+)?class\s+([A-Za-z_$][\w$]*)/.exec(pageObject)?.[1];
+}
+
+/**
+ * Deterministically adds any missing helper imports instead of trusting the
+ * LLM to write them: merges into an existing '../helpers' import or inserts a
+ * new one after the last import statement.
+ */
+export function injectMissingHelperImports(content: string): string {
+  if (!content.trim()) return content;
+  const missing = findUnimportedHelpers(content);
+  if (missing.length === 0) return content;
+
+  const existingImport = /import\s*\{([^}]*)\}\s*from\s*(['"])(\.\.?\/helpers)\2\s*;?/.exec(content);
+  if (existingImport) {
+    const names = existingImport[1].split(',').map((name) => name.trim()).filter(Boolean);
+    const merged = [...new Set([...names, ...missing])];
+    return content.replace(existingImport[0], `import { ${merged.join(', ')} } from '${existingImport[3]}';`);
+  }
+
+  const lines = content.split('\n');
+  let lastImportIndex = -1;
+  lines.forEach((line, index) => {
+    if (/^\s*import\b/.test(line)) lastImportIndex = index;
+  });
+  lines.splice(lastImportIndex + 1, 0, `import { ${missing.join(', ')} } from '../helpers';`);
+  return lines.join('\n');
 }
 
 /** Parses executable step lines (Given/When/Then/And/But/*) out of a feature file. */
@@ -174,6 +200,14 @@ export function collectValidationErrors(artifacts: GeneratedArtifactContents): s
         errors.push(`No step definition matches feature step: "${step}"`);
       }
     }
+  }
+
+  // Raw goto skips the app-ready gate (spinners/hydration) that navigate()
+  // provides — the #1 cause of clicks landing on a still-loading UI.
+  if (/\bpage\s*\.\s*goto\s*\(/.test(artifacts.stepDefinitions)) {
+    errors.push(
+      "stepDefinitions calls page.goto() directly — use the navigate(page, url) helper from '../helpers'; it waits for the app to finish loading (DOM, network, spinners) before the next step runs",
+    );
   }
 
   // Helpers used without the '../helpers' import fail at load time, before

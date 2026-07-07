@@ -42,11 +42,20 @@ Respond with ONLY valid JSON (no markdown fences):
 
 Rules:
 - Use @playwright/test Page and Locator types
-- Prefer getByRole, getByLabel, getByText over brittle CSS
-- Every action method MUST wait for its target locator to be visible before click/fill (use waitFor({ state: 'visible', timeout: 15_000 }))
-- Optional actions (dismissals, secondary buttons) should return Promise<boolean> — true when completed, false when element was not available
+- LOCATOR FIDELITY: reuse the EXACT locator chains from the recording for every recorded action. Codegen already
+  proved they work. Do NOT substitute "nicer" role/name locators — icon buttons (hamburgers, toggles) often have
+  no id and no accessible name, so if the recording used a CSS locator, .first(), or .nth(n), keep it verbatim.
+- Import wait helpers and use them for every action:
+  import { waitAndClick, waitAndFill, openMenu, clickAndWaitForUrl } from '../helpers';
+  - waitAndClick(locator) / waitAndFill(locator, value) — wait for loading + visibility, click/fill, retry if the
+    click produced no reaction
+  - openMenu(trigger, revealedContent) — for menus/drawers; verifies the menu opened and retries
+  - clickAndWaitForUrl(page, locator) — REQUIRED for clicks that navigate; verifies the URL changed
+- Recorded actions must FAIL when their element never appears. Only genuinely optional UI (cookie banners, promos)
+  may return Promise<boolean> using isVisible/clickIfVisible.
 - Export a single class with clear method names for each user action
-- Include a \`goto()\` method when navigation is recorded; use waitUntil: 'commit', timeout: 180_000, then waitForLoadState('domcontentloaded', { timeout: 180_000 })
+- Include a \`goto()\` method when navigation is recorded; use the navigate(page, url) helper — it waits for DOM,
+  network and loading spinners before returning
 - Keep methods small and intention-revealing
 - No test() blocks — Page Object only`;
 }
