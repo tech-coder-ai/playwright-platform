@@ -29,5 +29,11 @@ export const NETWORK_IDLE_TIMEOUT_MS = 30_000;
 /** How long a click gets to produce its effect (URL change, menu opening) before we retry it. */
 export const CLICK_EFFECT_TIMEOUT_MS = 10_000;
 
+/** Budget for loading indicators (spinners/overlays/skeletons) to disappear after navigation. */
+export const APP_READY_TIMEOUT_MS = 180_000;
+
+/** Budget for a loading indicator that pops up mid-flow to clear before an action. */
+export const LOADING_INDICATOR_TIMEOUT_MS = 60_000;
+
 /** Cucumber step budget — must exceed navigation + subsequent actions. */
 export const CUCUMBER_STEP_TIMEOUT_MS = 240_000;

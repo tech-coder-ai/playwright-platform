@@ -31,16 +31,23 @@ Visibility waits (use BEFORE every interaction):
 - isVisible(locator: Locator, timeout?: number): Promise<boolean>
   Returns true/false without throwing (default 15s probe). Use to branch or skip.
 
-Resilient / optional interactions (use when UI may not always be present):
+App readiness:
+- waitForAppReady(page, { timeout? }): Promise<void>
+  Blocks until DOM loaded + network quiet + all loading indicators (spinners/overlays/skeletons)
+  are gone. navigate() calls this automatically; call it directly after in-app route changes.
+
+Skippable interactions — ONLY for UI that is NOT part of the recorded flow (cookie banners,
+promos, survey popups). NEVER use these for actions that appear in the codegen recording:
+a recorded action exists on the page, so if it cannot be performed the test MUST FAIL, not skip.
 - clickIfVisible(page, selector, { timeout?, label? }): Promise<boolean>
   Clicks only if visible within 15s; returns false and logs [skip] when element is absent.
 - clickRoleIfVisible(page, role, name, { timeout?, label? }): Promise<boolean>
-  Role-based variant — preferred for links, buttons, menuitems (default 15s probe).
 - interactWhenVisible(page, selector, action, { timeout?, label? }): Promise<'completed' | 'skipped'>
 - runOptionalStep(label, action): Promise<'completed' | 'skipped'>
-  Wraps non-critical steps (cookie banners, promos, optional menus) in try/catch; logs skip and continues.
+  Wraps non-critical extras (cookie banners, promos) in try/catch; logs skip and continues.
 
-Step definitions MUST prefer these helpers over bare page.click() / page.fill().
+Step definitions MUST use waitAndClick / waitAndFill / openMenu / clickAndWaitForUrl for recorded
+actions — these wait for loading to finish and FAIL LOUDLY when the element never appears.
 `;
 
 export const WAIT_AND_RESILIENCE_RULES = `
@@ -57,13 +64,15 @@ C. Parameterized page-object methods may interpolate step arguments into a recor
 WAIT & RESILIENCE RULES (mandatory):
 
 1. Never call .click(), .fill(), .press(), or .selectOption() without a preceding visibility wait.
-   - Prefer clickRoleIfVisible / clickIfVisible for actions that may not always appear (ads, modals, menus).
-   - For required steps: await locator.waitFor({ state: 'visible', timeout: 15_000 }) then interact.
-   - For menus/dropdowns: wait for the parent trigger to be visible, click it, THEN wait for menuitem/link visible before clicking child.
+   - Recorded actions are REQUIRED: use waitAndClick / waitAndFill / openMenu / clickAndWaitForUrl, which wait for
+     loading to finish, wait for visibility, and THROW when the element never appears. Never let a recorded action
+     silently skip (no clickIfVisible, no \`if (!clicked) return;\` for recorded actions).
+   - For menus/dropdowns: use openMenu(trigger, revealedContent) — it waits, clicks, verifies the menu opened, retries.
 
-2. Mark optional UI in Gherkin with @optional tag on the Scenario or step comment.
-   - Step definitions for @optional flows MUST use clickRoleIfVisible, clickIfVisible, interactWhenVisible, or runOptionalStep.
-   - When skipped, log with console.warn and continue — do NOT fail the scenario.
+2. Skippable helpers (clickIfVisible / clickRoleIfVisible / interactWhenVisible / runOptionalStep) are ONLY for UI
+   that is NOT in the recording — cookie banners, promos, surveys. Tag such steps @optional in Gherkin.
+   - If a step maps to a recorded action, it must NOT be skippable — a skip there hides real failures and makes
+     every following step meaningless.
 
 3. Assertions must wait:
    - Use assertVisible / assertToast helpers, or expect(locator).toBeVisible({ timeout: 15_000 }).
@@ -95,15 +104,13 @@ Given('the user is on the application homepage', async function () {
 });
 \`\`\`
 
-8. Example pattern for a menu step:
+8. Example pattern for a menu step (recorded actions — must fail loudly, never skip):
 \`\`\`typescript
 When('the user opens {string} under {string}', async function (item: string, menu: string) {
   const page = this.page as Page;
-  const opened = await clickRoleIfVisible(page, 'link', menu, { label: menu, timeout: 15_000 });
-  if (!opened) return;
-  await page.getByRole('menuitem', { name: item }).waitFor({ state: 'visible', timeout: 15_000 });
-  const clicked = await clickRoleIfVisible(page, 'menuitem', item, { label: item, timeout: 15_000 });
-  if (!clicked) console.warn('[skip] menu item not available:', item);
+  // wait for the trigger, click, verify the menu opened (retries through slow loads)
+  await openMenu(page.getByRole('link', { name: menu }), page.getByRole('menuitem', { name: item }));
+  await clickAndWaitForUrl(page, page.getByRole('menuitem', { name: item }));
 });
 \`\`\`
 

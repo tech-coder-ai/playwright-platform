@@ -1,16 +1,91 @@
 import type { Locator, Page } from '@playwright/test';
 import {
   ACTION_TIMEOUT_MS,
+  APP_READY_TIMEOUT_MS,
   CLICK_EFFECT_TIMEOUT_MS,
   FIRST_INTERACTION_TIMEOUT_MS,
   LOAD_STATE_TIMEOUT_MS,
+  LOADING_INDICATOR_TIMEOUT_MS,
   NAVIGATION_TIMEOUT_MS,
   NETWORK_IDLE_TIMEOUT_MS,
   SKIP_VISIBILITY_TIMEOUT_MS,
   VISIBILITY_TIMEOUT_MS,
 } from './timeouts';
 
-async function waitForPageReady(page: Page): Promise<void> {
+/**
+ * Selectors treated as "the app is still loading". Extend or replace via the
+ * PW_LOADING_INDICATORS env var (comma-separated CSS selectors).
+ */
+const DEFAULT_LOADING_INDICATORS = [
+  '[aria-busy="true"]',
+  '.spinner',
+  '.loader',
+  '.loading',
+  '.loading-overlay',
+  '#nprogress',
+  '.MuiCircularProgress-root',
+  '.MuiSkeleton-root',
+  'mat-spinner',
+  'mat-progress-spinner',
+  'mat-progress-bar',
+  '.ant-spin-spinning',
+  '.ant-skeleton-active',
+  '.p-progress-spinner',
+  '[class*="skeleton" i]',
+];
+
+function loadingIndicatorSelector(): string {
+  const custom = process.env['PW_LOADING_INDICATORS'];
+  const selectors = custom
+    ? custom.split(',').map((selector) => selector.trim()).filter(Boolean)
+    : DEFAULT_LOADING_INDICATORS;
+  return selectors.join(', ');
+}
+
+async function hasVisibleLoadingIndicator(page: Page): Promise<boolean> {
+  try {
+    return await page.$$eval(loadingIndicatorSelector(), (elements) =>
+      elements.some((el) => el.getClientRects().length > 0 && (el as HTMLElement).offsetParent !== null),
+    );
+  } catch {
+    return false; // page navigating / selector unavailable — don't block
+  }
+}
+
+/**
+ * Blocks until loading indicators have been gone for two consecutive checks,
+ * or the budget runs out (warn and continue — a stuck spinner should surface
+ * as a real assertion failure, not a hang).
+ */
+async function waitForLoadingIndicatorsGone(page: Page, timeout: number): Promise<void> {
+  const deadline = Date.now() + timeout;
+  let clearChecks = 0;
+  let warned = false;
+  while (Date.now() < deadline) {
+    if (await hasVisibleLoadingIndicator(page)) {
+      clearChecks = 0;
+      if (!warned) {
+        console.warn('[wait] loading indicator visible — holding actions until it clears');
+        warned = true;
+      }
+      await page.waitForTimeout(300);
+    } else {
+      clearChecks += 1;
+      if (clearChecks >= 2) return;
+      await page.waitForTimeout(200);
+    }
+  }
+  console.warn(`[wait] loading indicator still visible after ${timeout}ms — continuing`);
+}
+
+/**
+ * Full readiness gate used after every navigation: DOM loaded, network quiet,
+ * and no loading spinner/overlay/skeleton on screen.
+ */
+export async function waitForAppReady(
+  page: Page,
+  options: { timeout?: number } = {},
+): Promise<void> {
   await page
     .waitForLoadState('domcontentloaded', { timeout: LOAD_STATE_TIMEOUT_MS })
     .catch(() => undefined);
@@ -20,6 +95,18 @@ async function waitForPageReady(page: Page): Promise<void> {
   await page
     .waitForLoadState('networkidle', { timeout: NETWORK_IDLE_TIMEOUT_MS })
     .catch(() => undefined);
+  await waitForLoadingIndicatorsGone(page, options.timeout ?? APP_READY_TIMEOUT_MS);
+}
+
+/** Cheap pre-action gate: only waits when a loading indicator is actually up. */
+async function ensureNotLoading(page: Page): Promise<void> {
+  if (await hasVisibleLoadingIndicator(page)) {
+    await waitForLoadingIndicatorsGone(page, LOADING_INDICATOR_TIMEOUT_MS);
+  }
+}
+
+async function waitForPageReady(page: Page): Promise<void> {
+  await waitForAppReady(page);
 }
 
 export async function login(
@@ -58,7 +145,9 @@ export async function waitAndClick(
   const timeout =
     options.timeout ??
     (options.firstInteraction ? FIRST_INTERACTION_TIMEOUT_MS : VISIBILITY_TIMEOUT_MS);
+  await ensureNotLoading(locator.page());
   await locator.waitFor({ state: 'visible', timeout });
+  await ensureNotLoading(locator.page());
   await locator.click({ timeout: ACTION_TIMEOUT_MS });
 }
 
@@ -71,7 +160,9 @@ export async function waitAndFill(
   const timeout =
     options.timeout ??
     (options.firstInteraction ? FIRST_INTERACTION_TIMEOUT_MS : VISIBILITY_TIMEOUT_MS);
+  await ensureNotLoading(locator.page());
   await locator.waitFor({ state: 'visible', timeout });
+  await ensureNotLoading(locator.page());
   await locator.fill(value, { timeout: ACTION_TIMEOUT_MS });
 }
 
@@ -160,6 +251,9 @@ export async function clickIfVisible(
   selector: string,
   options: { timeout?: number; label?: string } = {},
 ): Promise<boolean> {
+  // Don't let the skip-probe run against a loading screen — that turns a slow
+  // app into silently skipped steps.
+  await ensureNotLoading(page);
   const locator = page.locator(selector);
   const visible = await isVisible(locator, options.timeout ?? SKIP_VISIBILITY_TIMEOUT_MS);
   if (!visible) {
@@ -177,6 +271,7 @@ export async function clickRoleIfVisible(
   name: string | RegExp,
   options: { timeout?: number; label?: string } = {},
 ): Promise<boolean> {
+  await ensureNotLoading(page);
   const locator = page.getByRole(role, { name });
   const visible = await isVisible(locator, options.timeout ?? SKIP_VISIBILITY_TIMEOUT_MS);
   if (!visible) {
@@ -194,6 +289,7 @@ export async function interactWhenVisible(
   action: (target: Locator) => Promise<void>,
   options: { timeout?: number; label?: string } = {},
 ): Promise<'completed' | 'skipped'> {
+  await ensureNotLoading(page);
   const locator = page.locator(selector);
   const visible = await isVisible(locator, options.timeout ?? VISIBILITY_TIMEOUT_MS);
   if (!visible) {
@@ -220,6 +316,7 @@ export async function runOptionalStep(
 }
 
 export async function fillForm(page: Page, fields: Record<string, string>): Promise<void> {
+  await ensureNotLoading(page);
   for (const [selector, value] of Object.entries(fields)) {
     const field = page.locator(selector);
     await field.waitFor({ state: 'visible', timeout: VISIBILITY_TIMEOUT_MS });
@@ -228,6 +325,7 @@ export async function fillForm(page: Page, fields: Record<string, string>): Prom
 }
 
 export async function clickButton(page: Page, label: string): Promise<void> {
+  await ensureNotLoading(page);
   const button = page.getByRole('button', { name: label });
   await button.waitFor({ state: 'visible', timeout: VISIBILITY_TIMEOUT_MS });
   await button.click({ timeout: ACTION_TIMEOUT_MS });

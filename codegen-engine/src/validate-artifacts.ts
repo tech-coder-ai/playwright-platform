@@ -26,6 +26,7 @@ const HELPER_NAMES = [
   'login',
   'navigate',
   'waitForElement',
+  'waitForAppReady',
   'isVisible',
   'waitAndClick',
   'waitAndFill',
@@ -325,11 +326,24 @@ export function collectResilienceWarnings(artifacts: GeneratedArtifactContents):
         const context = lines.slice(Math.max(0, i - 6), i + 1).join('\n');
         if (!WAIT_MARKERS.some((marker) => context.includes(marker))) {
           warnings.push(
-            `${label} line ${i + 1}: interaction without a preceding visibility wait — call waitFor({ state: 'visible', timeout: 15_000 }) first or use a helper (clickIfVisible, clickButton, fillForm, ...)`,
+            `${label} line ${i + 1}: interaction without a preceding visibility wait — call waitFor({ state: 'visible', timeout: 15_000 }) first or use a helper (waitAndClick, clickButton, fillForm, ...)`,
           );
         }
       }
     });
+  }
+
+  // Skippable helpers on a flow with no @optional UI silently swallow real
+  // failures: the step "passes" doing nothing and every later step is
+  // meaningless. Recorded actions must fail loudly instead.
+  if (!/@optional/.test(artifacts.featureFile)) {
+    const skippable = /\b(clickIfVisible|clickRoleIfVisible|interactWhenVisible|runOptionalStep)\s*\(/g;
+    const hits = [...new Set([...artifacts.stepDefinitions.matchAll(skippable)].map((m) => m[1]))];
+    if (hits.length > 0) {
+      warnings.push(
+        `stepDefinitions uses skippable helper(s) ${hits.join(', ')} but the feature has no @optional steps — recorded actions must use waitAndClick / openMenu / clickAndWaitForUrl so a missing element FAILS the step instead of silently skipping it`,
+      );
+    }
   }
 
   return warnings;
