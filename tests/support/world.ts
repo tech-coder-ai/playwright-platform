@@ -10,10 +10,11 @@ import {
 } from '@cucumber/cucumber';
 import { chromium, Browser, BrowserContext, Page } from '@playwright/test';
 import { getBrowserLaunchOptions } from './browser-env';
+import { CUCUMBER_STEP_TIMEOUT_MS } from '../helpers/timeouts';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
-setDefaultTimeout(60_000);
+setDefaultTimeout(CUCUMBER_STEP_TIMEOUT_MS);
 
 export class PlaywrightWorld extends World {
   browser!: Browser;

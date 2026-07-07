@@ -12,6 +12,7 @@
         Dashboard
       </a>
       <a routerLink="/projects" routerLinkActive="active">Projects</a>
+      <a routerLink="/unit-test-prompts" routerLinkActive="active">Unit test prompts</a>
       @if (auth.authEnabled() && auth.hasMinRole('admin')) {
         <a routerLink="/users" routerLinkActive="active">Users</a>
       }

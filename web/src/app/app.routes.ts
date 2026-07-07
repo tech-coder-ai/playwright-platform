@@ -90,6 +90,14 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'unit-test-prompts',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/unit-test-prompts/unit-test-prompts.component').then(
+        (m) => m.UnitTestPromptsComponent,
+      ),
+  },
+  {
     path: 'users',
     canActivate: [authGuard, adminGuard],
     loadComponent: () =>

@@ -43,8 +43,10 @@ Respond with ONLY valid JSON (no markdown fences):
 Rules:
 - Use @playwright/test Page and Locator types
 - Prefer getByRole, getByLabel, getByText over brittle CSS
+- Every action method MUST wait for its target locator to be visible before click/fill (use waitFor({ state: 'visible', timeout: 15_000 }))
+- Optional actions (dismissals, secondary buttons) should return Promise<boolean> — true when completed, false when element was not available
 - Export a single class with clear method names for each user action
-- Include a \`goto()\` method when navigation is recorded
+- Include a \`goto()\` method when navigation is recorded; use waitUntil: 'commit', timeout: 180_000, then waitForLoadState('domcontentloaded', { timeout: 180_000 })
 - Keep methods small and intention-revealing
 - No test() blocks — Page Object only`;
 }
