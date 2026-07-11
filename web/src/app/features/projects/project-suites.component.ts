@@ -112,12 +112,12 @@ import { parseTagsInput } from '../../shared/utils/tags.util';
     .panel-desc {
       margin: 0.25rem 0 0;
       font-size: 0.8125rem;
-      color: #64748b;
+      color: var(--text-muted);
     }
 
     .create-panel {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
+      background: var(--surface-raised);
+      border: 1px solid var(--border);
       border-radius: 10px;
       padding: 1.25rem;
       margin-bottom: 1.25rem;
@@ -136,7 +136,7 @@ import { parseTagsInput } from '../../shared/utils/tags.util';
     .empty-panel {
       text-align: center;
       padding: 2.5rem 1rem;
-      color: #64748b;
+      color: var(--text-muted);
 
       p {
         margin: 0 0 1rem;
@@ -145,7 +145,7 @@ import { parseTagsInput } from '../../shared/utils/tags.util';
 
     .suite-link {
       font-weight: 600;
-      color: #4f46e5;
+      color: var(--accent);
       text-decoration: none;
 
       &:hover {
@@ -155,12 +155,12 @@ import { parseTagsInput } from '../../shared/utils/tags.util';
 
     .row-desc {
       font-size: 0.8125rem;
-      color: #64748b;
+      color: var(--text-muted);
       margin-top: 0.125rem;
     }
 
     .muted {
-      color: #94a3b8;
+      color: var(--text-muted);
     }
   `,
 })

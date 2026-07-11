@@ -290,8 +290,8 @@ type SettingsTab = 'environments' | 'secrets' | 'capture';
       display: flex;
       flex-direction: column;
       gap: 0.25rem;
-      background: #fff;
-      border: 1px solid #e2e8f0;
+      background: var(--surface);
+      border: 1px solid var(--border);
       border-radius: 10px;
       padding: 0.5rem;
 
@@ -304,17 +304,17 @@ type SettingsTab = 'environments' | 'secrets' | 'capture';
         font: inherit;
         font-size: 0.875rem;
         font-weight: 500;
-        color: #64748b;
+        color: var(--text-muted);
         cursor: pointer;
 
         &:hover {
-          background: #f8fafc;
-          color: #334155;
+          background: var(--surface-raised);
+          color: var(--text-secondary);
         }
 
         &.active {
-          background: #eef2ff;
-          color: #4f46e5;
+          background: var(--accent-soft);
+          color: var(--accent);
         }
       }
     }
@@ -338,12 +338,12 @@ type SettingsTab = 'environments' | 'secrets' | 'capture';
     .panel-desc {
       margin: 0.25rem 0 0;
       font-size: 0.8125rem;
-      color: #64748b;
+      color: var(--text-muted);
     }
 
     .create-panel {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
+      background: var(--surface-raised);
+      border: 1px solid var(--border);
       border-radius: 10px;
       padding: 1rem;
       margin-bottom: 1rem;
@@ -368,7 +368,7 @@ type SettingsTab = 'environments' | 'secrets' | 'capture';
     }
 
     .success {
-      color: #15803d;
+      color: var(--success-text);
       font-size: 0.875rem;
       margin: 0;
     }

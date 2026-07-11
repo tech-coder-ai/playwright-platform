@@ -2,10 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Web</title>
+  <title>Playwright Testing Platform</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <script>
+    // Apply the persisted theme before first paint to avoid a flash.
+    (function () {
+      try {
+        var mode = localStorage.getItem('pt-theme') || 'system';
+        var dark = mode === 'dark' ||
+          (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+      } catch (e) { /* private mode — default to light */ }
+    })();
+  </script>
 </head>
 <body>
   <app-root></app-root>

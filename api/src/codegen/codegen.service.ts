@@ -13,18 +13,30 @@ import { ensureProjectExists } from '../common/ensure-exists.util';
 import { getTestsRoot } from '../test-runner/paths.util';
 import { buildPlaywrightBrowserEnv } from '../common/browser-env.util';
 import { resolvePlaywrightCli } from '../common/cli-path.util';
+import { killProcessTree } from '../common/kill-process-tree.util';
 import {
   getCodegenOutputPath,
   getCodegenRelativeOutputPath,
   getCodegenSessionDir,
 } from './codegen.paths';
-import type { CodegenSessionMeta, CodegenSessionMode, CodegenSessionStatus } from '@playwright-platform/shared-types';
+import { RemoteRecorderSession } from './remote-recorder';
+import type {
+  CodegenRecorderMode,
+  CodegenSessionMeta,
+  CodegenSessionMode,
+  CodegenSessionStatus,
+  RemoteInputEvent,
+  ScreencastFramePayload,
+} from '@playwright-platform/shared-types';
+
+const DEFAULT_REMOTE_VIEWPORT = { width: 1280, height: 720 };
 
 type SessionRecord = {
   id: string;
   projectId: string;
   url: string;
   mode: CodegenSessionMode;
+  recorder: CodegenRecorderMode;
   targetPageObjectId?: string;
   status: CodegenSessionStatus;
   outputPath: string;
@@ -34,6 +46,7 @@ type SessionRecord = {
   startedAt: Date;
   endedAt?: Date;
   process?: ChildProcess;
+  remote?: RemoteRecorderSession;
   watchTimer?: ReturnType<typeof setInterval>;
 };
 
@@ -43,6 +56,7 @@ export class CodegenService implements OnModuleDestroy {
   private readonly sessions = new Map<string, SessionRecord>();
   private outputHandler?: (sessionId: string, content: string) => void;
   private statusHandler?: (sessionId: string, status: CodegenSessionStatus, errorMessage?: string) => void;
+  private frameHandler?: (frame: ScreencastFramePayload) => void;
 
   constructor(private readonly db: DatabaseService) {}
 
@@ -62,14 +76,35 @@ export class CodegenService implements OnModuleDestroy {
     this.statusHandler = handler;
   }
 
+  setFrameHandler(handler: (frame: ScreencastFramePayload) => void) {
+    this.frameHandler = handler;
+  }
+
+  /**
+   * Recorder mode resolution: the deployment sets the default via
+   * CODEGEN_RECORDER (local | remote); a client may override per session
+   * unless CODEGEN_RECORDER_LOCKED=true pins the server default.
+   */
+  private resolveRecorderMode(requested?: CodegenRecorderMode): CodegenRecorderMode {
+    const configured: CodegenRecorderMode =
+      process.env['CODEGEN_RECORDER'] === 'remote' ? 'remote' : 'local';
+    if (process.env['CODEGEN_RECORDER_LOCKED'] === 'true') return configured;
+    return requested ?? configured;
+  }
+
   async start(
     projectId: string,
     url: string,
-    options: { mode?: CodegenSessionMode; targetPageObjectId?: string } = {},
+    options: {
+      mode?: CodegenSessionMode;
+      recorder?: CodegenRecorderMode;
+      targetPageObjectId?: string;
+    } = {},
   ): Promise<CodegenSessionMeta> {
     await ensureProjectExists(this.db, projectId);
     const normalizedUrl = this.normalizeUrl(url);
     const mode = options.mode ?? 'test';
+    const recorder = this.resolveRecorderMode(options.recorder);
 
     if (options.targetPageObjectId) {
       const existing = await this.db.pageObject.findFirst({
@@ -91,6 +126,7 @@ export class CodegenService implements OnModuleDestroy {
       projectId,
       url: normalizedUrl,
       mode,
+      recorder,
       targetPageObjectId: options.targetPageObjectId,
       status: 'starting',
       outputPath,
@@ -101,6 +137,10 @@ export class CodegenService implements OnModuleDestroy {
 
     this.sessions.set(sessionId, session);
     this.emitStatus(sessionId, 'starting');
+
+    if (recorder === 'remote') {
+      return this.startRemote(session);
+    }
 
     try {
       const child = spawn(
@@ -165,10 +205,64 @@ export class CodegenService implements OnModuleDestroy {
     return this.toMeta(session);
   }
 
+  /** Headless server-side browser streamed to the web UI (see RemoteRecorderSession). */
+  private async startRemote(session: SessionRecord): Promise<CodegenSessionMeta> {
+    const remote = new RemoteRecorderSession({
+      url: session.url,
+      outputFile: session.outputPath,
+      viewport: { ...DEFAULT_REMOTE_VIEWPORT },
+      onFrame: (frame) => {
+        this.frameHandler?.({ sessionId: session.id, ...frame });
+      },
+      onError: (message) => {
+        this.logger.warn(`remote recorder [${session.id}]: ${message}`);
+        session.errorMessage = message;
+        this.emitStatus(session.id, session.status, message);
+      },
+    });
+
+    try {
+      await remote.start();
+      session.remote = remote;
+      session.status = 'recording';
+      this.emitStatus(session.id, 'recording');
+      session.watchTimer = setInterval(() => {
+        void this.readOutputFile(session);
+      }, 500);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to start remote recording browser';
+      session.status = 'error';
+      session.errorMessage = message;
+      session.endedAt = new Date();
+      this.emitStatus(session.id, 'error', message);
+      throw new BadRequestException(message);
+    }
+
+    return this.toMeta(session);
+  }
+
+  async dispatchInput(sessionId: string, event: RemoteInputEvent): Promise<void> {
+    const session = this.getSessionOrThrow(sessionId);
+    if (session.status !== 'recording' || !session.remote) return;
+    await session.remote.dispatchInput(event);
+  }
+
+  async resize(sessionId: string, width: number, height: number): Promise<void> {
+    const session = this.getSessionOrThrow(sessionId);
+    if (session.status !== 'recording' || !session.remote) return;
+    await session.remote.resize(width, height);
+  }
+
   async stop(sessionId: string): Promise<CodegenSessionMeta> {
     const session = this.getSessionOrThrow(sessionId);
     if (session.status === 'recording' || session.status === 'starting') {
-      session.process?.kill('SIGINT');
+      killProcessTree(session.process, 'SIGINT');
+      if (session.remote) {
+        // Closing the context flushes the recorder's output file.
+        await session.remote.close();
+        session.remote = undefined;
+      }
       session.status = 'stopped';
       session.endedAt = new Date();
       this.stopWatching(session);
@@ -218,7 +312,11 @@ export class CodegenService implements OnModuleDestroy {
 
   private cleanupSession(session: SessionRecord, status: CodegenSessionStatus) {
     this.stopWatching(session);
-    session.process?.kill('SIGTERM');
+    killProcessTree(session.process, 'SIGTERM');
+    if (session.remote) {
+      void session.remote.close();
+      session.remote = undefined;
+    }
     session.status = status;
     session.endedAt = new Date();
   }
@@ -246,6 +344,8 @@ export class CodegenService implements OnModuleDestroy {
       projectId: session.projectId,
       url: session.url,
       mode: session.mode,
+      recorder: session.recorder,
+      viewport: session.remote?.getViewport(),
       targetPageObjectId: session.targetPageObjectId,
       status: session.status,
       outputRelativePath: session.outputRelativePath,

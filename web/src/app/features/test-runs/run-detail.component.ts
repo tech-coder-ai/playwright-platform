@@ -194,12 +194,12 @@ type ViewerTab = 'steps' | 'log' | 'media';
   styles: `
     code {
       font-size: 0.8125rem;
-      color: #64748b;
+      color: var(--text-muted);
     }
 
     .run-meta {
       margin: 0.375rem 0 0;
-      color: #64748b;
+      color: var(--text-muted);
       font-size: 0.875rem;
     }
 
@@ -218,44 +218,44 @@ type ViewerTab = 'steps' | 'log' | 'media';
       border-radius: 999px;
       font-size: 0.75rem;
       font-weight: 600;
-      background: #eef2ff;
-      color: #4f46e5;
+      background: var(--accent-soft);
+      color: var(--accent);
       text-transform: none;
     }
 
     .status-pending,
     .status-running {
-      background: #fff3e0;
-      color: #e65100;
+      background: var(--warning-bg);
+      color: var(--warning-text);
     }
 
     .status-passed {
-      background: #e8f5e9;
-      color: #2e7d32;
+      background: var(--success-bg);
+      color: var(--success-text);
     }
 
     .status-failed {
-      background: #ffebee;
-      color: #c62828;
+      background: var(--danger-bg);
+      color: var(--danger-text);
     }
 
     .status-skipped {
-      background: #eceff1;
-      color: #546e7a;
+      background: var(--neutral-bg);
+      color: var(--neutral-text);
     }
 
     .error-banner {
-      border-color: #fecaca;
-      background: #fef2f2;
+      border-color: var(--danger-border);
+      background: var(--danger-bg);
 
       h3 {
         margin: 0 0 0.5rem;
-        color: #b91c1c;
+        color: var(--danger-text);
       }
 
       p {
         margin: 0;
-        color: #7f1d1d;
+        color: var(--danger-text);
       }
     }
 
@@ -271,15 +271,15 @@ type ViewerTab = 'steps' | 'log' | 'media';
     }
 
     .case-list {
-      background: #fff;
-      border: 1px solid #e2e8f0;
+      background: var(--surface);
+      border: 1px solid var(--border);
       border-radius: 12px;
       padding: 0.75rem;
 
       h3 {
         margin: 0 0 0.75rem;
         font-size: 0.875rem;
-        color: #64748b;
+        color: var(--text-muted);
         text-transform: uppercase;
         letter-spacing: 0.04em;
       }
@@ -298,12 +298,12 @@ type ViewerTab = 'steps' | 'log' | 'media';
       font: inherit;
 
       &:hover {
-        background: #f8fafc;
+        background: var(--surface-raised);
       }
 
       &.active {
-        background: #eef2ff;
-        border-color: #c7d2fe;
+        background: var(--accent-soft);
+        border-color: var(--accent);
       }
     }
 
@@ -319,7 +319,7 @@ type ViewerTab = 'steps' | 'log' | 'media';
 
       span {
         font-size: 0.75rem;
-        color: #64748b;
+        color: var(--text-muted);
       }
     }
 
@@ -345,7 +345,7 @@ type ViewerTab = 'steps' | 'log' | 'media';
     }
 
     .dot-skipped {
-      background: #94a3b8;
+      background: var(--text-muted);
     }
 
     .case-panel {
@@ -372,7 +372,7 @@ type ViewerTab = 'steps' | 'log' | 'media';
       display: flex;
       gap: 0.375rem;
       margin-bottom: 1rem;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid var(--border);
       padding-bottom: 0.5rem;
     }
 
@@ -387,18 +387,18 @@ type ViewerTab = 'steps' | 'log' | 'media';
       font: inherit;
       font-size: 0.875rem;
       font-weight: 500;
-      color: #64748b;
+      color: var(--text-muted);
       cursor: pointer;
 
       &.active {
-        background: #eef2ff;
-        color: #4f46e5;
+        background: var(--accent-soft);
+        color: var(--accent);
       }
     }
 
     .tab-count {
-      background: #4f46e5;
-      color: #fff;
+      background: var(--accent);
+      color: var(--accent-contrast);
       font-size: 0.6875rem;
       padding: 0.0625rem 0.375rem;
       border-radius: 999px;
@@ -413,15 +413,15 @@ type ViewerTab = 'steps' | 'log' | 'media';
     }
 
     .step-list li {
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--border);
       border-radius: 10px;
       padding: 0.75rem 1rem;
-      background: #fafafa;
+      background: var(--surface-raised);
     }
 
     .step-failed {
-      border-color: #fecaca;
-      background: #fef2f2;
+      border-color: var(--danger-border);
+      background: var(--danger-bg);
     }
 
     .step-header {
@@ -433,7 +433,7 @@ type ViewerTab = 'steps' | 'log' | 'media';
 
     .step-duration {
       font-size: 0.75rem;
-      color: #64748b;
+      color: var(--text-muted);
     }
 
     .step-text {
@@ -443,24 +443,24 @@ type ViewerTab = 'steps' | 'log' | 'media';
 
     .keyword {
       font-weight: 600;
-      color: #4f46e5;
+      color: var(--accent);
     }
 
     .step-error {
       margin: 0.5rem 0 0;
       padding: 0.5rem;
-      background: #fff;
+      background: var(--surface);
       border-radius: 6px;
       font-size: 0.75rem;
       white-space: pre-wrap;
-      color: #b91c1c;
+      color: var(--danger-text);
     }
 
     .log-output {
       margin: 0;
       padding: 1rem;
-      background: #1a1a2e;
-      color: #e0e0e0;
+      background: var(--code-bg);
+      color: var(--code-text);
       border-radius: 8px;
       font-size: 0.75rem;
       overflow-x: auto;
@@ -477,10 +477,10 @@ type ViewerTab = 'steps' | 'log' | 'media';
 
     .media-card {
       margin: 0;
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--border);
       border-radius: 10px;
       overflow: hidden;
-      background: #f8fafc;
+      background: var(--surface-raised);
 
       img,
       video {
@@ -488,16 +488,16 @@ type ViewerTab = 'steps' | 'log' | 'media';
         width: 100%;
         max-height: 12rem;
         object-fit: contain;
-        background: #0f172a;
+        background: var(--code-bg);
       }
 
       figcaption {
         padding: 0.5rem 0.75rem;
         font-size: 0.75rem;
-        color: #64748b;
+        color: var(--text-muted);
 
         a {
-          color: #4f46e5;
+          color: var(--accent);
         }
       }
     }

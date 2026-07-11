@@ -64,6 +64,29 @@ Without an environment selected, runs use `https://example.com` as the base URL.
 npm run test:playwright
 ```
 
+## Recording browsers: local vs remote (server-hosted)
+
+`playwright codegen` opens a browser on the machine running the API — useless once the
+platform is deployed on a server. The recorder therefore supports two modes, configured via
+`api/.env`:
+
+| `CODEGEN_RECORDER` | Behavior |
+|---|---|
+| `local` (default) | A headed Chromium window opens on the API machine (original behavior, for laptops) |
+| `remote` | Chromium runs **headless on the server** and is streamed into the web UI over CDP screencast; your clicks/keystrokes are forwarded back and recorded server-side |
+
+In remote mode the recorder page shows a live canvas of the server browser. Everything
+downstream (live codegen output, LLM generation, review, save) is identical in both modes.
+Users can pick the mode per recording session unless `CODEGEN_RECORDER_LOCKED=true` pins the
+server default. Tune stream quality with `CODEGEN_STREAM_QUALITY` (JPEG 1–100) and pass extra
+Chromium flags (e.g. `--no-sandbox` on hardened Linux hosts) via `CODEGEN_BROWSER_ARGS`.
+
+## Theming
+
+The UI ships with light and dark themes plus a follow-OS mode. Use the toggle in the top bar
+(persisted per browser in `localStorage`). All components style against CSS design tokens in
+`web/src/styles.scss` — add or rebrand themes by overriding the token block.
+
 ## LLM test generation
 
 1. Open a project → **Record test**
@@ -141,7 +164,13 @@ Prisma is only required when `DB_PROVIDER=prisma`. JSON and Oracle modes use the
 | `playwright` (default) | Standard Playwright install | `npm run test:playwright:install` |
 | `npm` | `playwright install` blocked | `BROWSER_PROVIDER=npm`, `npm run test:chromium:install` (or set `CHROMIUM_EXECUTABLE_PATH`) |
 
-Playwright test execution stays the same; only the Chromium binary source changes. The npm `chromium` package path is passed via `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`.
+Playwright test execution stays the same; only the Chromium binary source changes. The npm `chromium` package path is passed via `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`. The remote recorder honors `CHROMIUM_EXECUTABLE_PATH` too.
+
+### Security & deployment
+
+- `CORS_ORIGINS` — comma-separated allowed browser origins for the REST API and websockets (default `http://localhost:4200`).
+- `BODY_LIMIT` — max JSON payload size (default `5mb`).
+- Baseline security headers are set on every response; shutdown hooks close recording browsers and scheduled jobs cleanly.
 
 ## API Health Check
 

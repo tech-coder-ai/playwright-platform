@@ -115,7 +115,7 @@ type EditorTab = 'feature' | 'steps' | 'pageObject' | 'spec';
   styles: `
     .subtitle {
       margin: 0.375rem 0 0;
-      color: #64748b;
+      color: var(--text-muted);
       font-size: 0.875rem;
     }
 
@@ -128,19 +128,19 @@ type EditorTab = 'feature' | 'steps' | 'pageObject' | 'spec';
 
     .tab-btn {
       padding: 0.5rem 0.875rem;
-      border: 1px solid #cbd5e1;
+      border: 1px solid var(--border-strong);
       border-radius: 8px;
-      background: #fff;
+      background: var(--surface);
       cursor: pointer;
       font: inherit;
       font-size: 0.875rem;
       font-weight: 500;
-      color: #64748b;
+      color: var(--text-muted);
 
       &.active {
-        background: #4f46e5;
-        border-color: #4f46e5;
-        color: #fff;
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--accent-contrast);
       }
     }
 
@@ -151,7 +151,7 @@ type EditorTab = 'feature' | 'steps' | 'pageObject' | 'spec';
     .path-hint {
       display: block;
       font-size: 0.75rem;
-      color: #64748b;
+      color: var(--text-muted);
       font-weight: 400;
       margin-bottom: 0.25rem;
     }
@@ -164,7 +164,7 @@ type EditorTab = 'feature' | 'steps' | 'pageObject' | 'spec';
     }
 
     .success {
-      color: #15803d;
+      color: var(--success-text);
       font-size: 0.875rem;
       margin: 0;
     }

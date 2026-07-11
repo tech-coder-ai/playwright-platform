@@ -181,12 +181,12 @@ import { apiErrorMessage } from '../../shared/utils/api-error.util';
     .panel-desc {
       margin: 0.25rem 0 0;
       font-size: 0.8125rem;
-      color: #64748b;
+      color: var(--text-muted);
     }
 
     .create-panel {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
+      background: var(--surface-raised);
+      border: 1px solid var(--border);
       border-radius: 10px;
       padding: 1.25rem;
       margin-bottom: 1.25rem;
@@ -224,10 +224,10 @@ import { apiErrorMessage } from '../../shared/utils/api-error.util';
 
     .advanced-section {
       margin: 1rem 0;
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--border);
       border-radius: 8px;
       padding: 0.75rem 1rem;
-      background: #fff;
+      background: var(--surface);
 
       summary {
         cursor: pointer;
@@ -245,7 +245,7 @@ import { apiErrorMessage } from '../../shared/utils/api-error.util';
     .empty-panel {
       text-align: center;
       padding: 2.5rem 1rem;
-      color: #64748b;
+      color: var(--text-muted);
 
       p {
         margin: 0 0 1rem;
@@ -263,17 +263,17 @@ import { apiErrorMessage } from '../../shared/utils/api-error.util';
       font-size: 0.6875rem;
       font-weight: 600;
       text-transform: uppercase;
-      background: #f1f5f9;
-      color: #64748b;
+      background: var(--divider);
+      color: var(--text-muted);
 
       &.enabled {
-        background: #dcfce7;
-        color: #15803d;
+        background: var(--success-bg);
+        color: var(--success-text);
       }
     }
 
     .muted {
-      color: #94a3b8;
+      color: var(--text-muted);
     }
   `,
 })

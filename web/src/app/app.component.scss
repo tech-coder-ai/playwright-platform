@@ -2,8 +2,8 @@
   display: block;
   min-height: 100vh;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  color: #0f172a;
-  background: #f1f5f9;
+  color: var(--text);
+  background: var(--bg);
 }
 
 .app-shell {
@@ -13,8 +13,8 @@
 }
 
 .sidebar {
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text);
   padding: 1.25rem 1rem;
   display: flex;
   flex-direction: column;
@@ -30,11 +30,12 @@
   strong {
     display: block;
     font-size: 0.9375rem;
+    color: var(--sidebar-text-active);
   }
 
   span {
     font-size: 0.6875rem;
-    color: #94a3b8;
+    color: var(--sidebar-text);
   }
 }
 
@@ -59,19 +60,24 @@
   a {
     padding: 0.625rem 0.75rem;
     border-radius: 8px;
-    color: #cbd5e1;
+    color: var(--sidebar-text);
     text-decoration: none;
     font-size: 0.875rem;
     font-weight: 500;
 
     &:hover {
-      background: rgb(255 255 255 / 6%);
-      color: #fff;
+      background: var(--sidebar-hover);
+      color: var(--sidebar-text-active);
     }
 
     &.active {
-      background: rgb(99 102 241 / 20%);
-      color: #fff;
+      background: var(--sidebar-active);
+      color: var(--sidebar-text-active);
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring);
     }
   }
 }
@@ -86,9 +92,45 @@
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  padding: 0.75rem 1.5rem;
-  border-bottom: 1px solid #e2e8f0;
-  background: #fff;
+  padding: 0.625rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: var(--surface-raised);
+    color: var(--text);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+}
+
+.theme-label {
+  text-transform: capitalize;
 }
 
 .user-menu {
@@ -99,14 +141,14 @@
 }
 
 .user-email {
-  color: #475569;
+  color: var(--text-secondary);
 }
 
 .role-badge {
   padding: 0.125rem 0.5rem;
   border-radius: 999px;
-  background: #eef2ff;
-  color: #4338ca;
+  background: var(--accent-soft);
+  color: var(--accent-soft-text);
   font-size: 0.6875rem;
   font-weight: 600;
   text-transform: uppercase;

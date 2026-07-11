@@ -25,7 +25,7 @@ import Chart, { ChartConfiguration } from 'chart.js/auto';
     }
 
     .empty {
-      color: #64748b;
+      color: var(--text-muted);
       font-size: 0.875rem;
       margin: 2rem 0;
       text-align: center;

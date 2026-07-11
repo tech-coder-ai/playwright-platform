@@ -11,10 +11,11 @@ import { EnvironmentsService } from '../../core/services/environments.service';
 import { PageObjectsService } from '../../core/services/page-objects.service';
 import { CodegenSocketService } from '../../core/services/codegen-socket.service';
 import { apiErrorMessage } from '../../shared/utils/api-error.util';
+import { RemoteViewportComponent } from '../../shared/components/remote-viewport.component';
 
 @Component({
   selector: 'app-page-object-recorder',
-  imports: [RouterLink, ReactiveFormsModule],
+  imports: [RouterLink, ReactiveFormsModule, RemoteViewportComponent],
   template: `
     <div class="page-header">
       <div>
@@ -66,6 +67,15 @@ import { apiErrorMessage } from '../../shared/utils/api-error.util';
           <input formControlName="componentName" placeholder="Forgot password modal" />
         </label>
 
+        <label>
+          Recording browser
+          <select formControlName="recorder">
+            <option value="">Server default</option>
+            <option value="remote">Streamed in this page (server-hosted)</option>
+            <option value="local">Window on the API machine</option>
+          </select>
+        </label>
+
         <div class="form-actions">
           @if (!recording()) {
             <button class="btn btn-primary" type="button" (click)="startRecording()" [disabled]="form.invalid">
@@ -76,6 +86,12 @@ import { apiErrorMessage } from '../../shared/utils/api-error.util';
           }
         </div>
       </form>
+
+      @if (recording() && codegen.session()?.recorder === 'remote') {
+        <div style="margin-top: 1rem">
+          <app-remote-viewport [sessionId]="codegen.session()!.id" />
+        </div>
+      }
 
       @if (existingPreview()) {
         <h4>Current page object</h4>
@@ -152,8 +168,8 @@ import { apiErrorMessage } from '../../shared/utils/api-error.util';
     .code-output {
       margin: 0.5rem 0 0;
       padding: 1rem;
-      background: #1a1a2e;
-      color: #e0e0e0;
+      background: var(--code-bg);
+      color: var(--code-text);
       border-radius: 4px;
       font-size: 0.8125rem;
       overflow-x: auto;
@@ -207,6 +223,7 @@ export class PageObjectRecorderComponent implements OnInit, OnDestroy {
     targetPageObjectId: [''],
     screenName: ['', Validators.required],
     componentName: [''],
+    recorder: [''],
   });
 
   readonly saveForm = this.fb.nonNullable.group({
@@ -288,7 +305,7 @@ export class PageObjectRecorderComponent implements OnInit, OnDestroy {
 
   startRecording() {
     if (this.form.invalid) return;
-    const { url, targetPageObjectId, screenName } = this.form.getRawValue();
+    const { url, targetPageObjectId, screenName, recorder } = this.form.getRawValue();
     this.recording.set(true);
     this.generated.set(null);
     this.generateError.set(null);
@@ -297,6 +314,7 @@ export class PageObjectRecorderComponent implements OnInit, OnDestroy {
     this.codegen.start(this.projectId, url, {
       mode: 'page-object',
       targetPageObjectId: targetPageObjectId || undefined,
+      ...(recorder ? { recorder: recorder as 'local' | 'remote' } : {}),
     });
     this.saveForm.patchValue({ screenName });
   }

@@ -53,7 +53,7 @@ import { apiErrorMessage } from '../../shared/utils/api-error.util';
 
     input {
       padding: 0.5rem;
-      border: 1px solid #ccc;
+      border: 1px solid var(--border-strong);
       border-radius: 4px;
       font: inherit;
     }

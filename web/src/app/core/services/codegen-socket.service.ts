@@ -1,6 +1,10 @@
 import { Injectable, NgZone, inject, signal } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
-import { CodegenSessionMeta } from '@playwright-platform/shared-types';
+import {
+  CodegenSessionMeta,
+  RemoteInputEvent,
+  ScreencastFramePayload,
+} from '@playwright-platform/shared-types';
 
 @Injectable({ providedIn: 'root' })
 export class CodegenSocketService {
@@ -11,6 +15,8 @@ export class CodegenSocketService {
   readonly output = signal('');
   readonly connected = signal(false);
   readonly error = signal<string | null>(null);
+  /** Latest screencast frame of the remote recording browser. */
+  readonly frame = signal<ScreencastFramePayload | null>(null);
 
   connect() {
     if (this.socket?.connected) return;
@@ -66,6 +72,12 @@ export class CodegenSocketService {
     this.socket.on('error', (payload: { message: string }) => {
       this.zone.run(() => this.error.set(payload.message));
     });
+
+    // High-frequency video frames: bypass zone change detection; the frame
+    // signal notifies the canvas component directly.
+    this.socket.on('frame', (payload: ScreencastFramePayload) => {
+      this.frame.set(payload);
+    });
   }
 
   disconnect() {
@@ -77,12 +89,17 @@ export class CodegenSocketService {
   start(
     projectId: string,
     url: string,
-    options: { mode?: 'test' | 'page-object'; targetPageObjectId?: string } = {},
+    options: {
+      mode?: 'test' | 'page-object';
+      recorder?: 'local' | 'remote';
+      targetPageObjectId?: string;
+    } = {},
   ) {
     this.connect();
     this.error.set(null);
     this.output.set('');
     this.session.set(null);
+    this.frame.set(null);
     this.socket?.emit('start', { projectId, url, ...options });
   }
 
@@ -90,9 +107,18 @@ export class CodegenSocketService {
     this.socket?.emit('stop', { sessionId });
   }
 
+  sendInput(sessionId: string, event: RemoteInputEvent) {
+    this.socket?.emit('input', { sessionId, event });
+  }
+
+  resize(sessionId: string, width: number, height: number) {
+    this.socket?.emit('resize', { sessionId, width, height });
+  }
+
   reset() {
     this.output.set('');
     this.session.set(null);
     this.error.set(null);
+    this.frame.set(null);
   }
 }

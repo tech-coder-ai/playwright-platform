@@ -15,7 +15,7 @@ import {
   styles: `
     .page-subtitle {
       margin: 0.25rem 0 0;
-      color: #64748b;
+      color: var(--text-muted);
       font-size: 0.9rem;
     }
 
@@ -28,25 +28,25 @@ import {
 
     .lang-tab {
       padding: 0.5rem 1rem;
-      border: 1px solid #cbd5e1;
+      border: 1px solid var(--border-strong);
       border-radius: 999px;
-      background: #fff;
+      background: var(--surface);
       font: inherit;
       font-size: 0.875rem;
       font-weight: 500;
       cursor: pointer;
-      color: #475569;
+      color: var(--text-secondary);
       transition: all 0.15s ease;
 
       &:hover {
-        border-color: #6366f1;
-        color: #4338ca;
+        border-color: var(--accent);
+        color: var(--accent-soft-text);
       }
 
       &.active {
-        background: #6366f1;
-        border-color: #6366f1;
-        color: #fff;
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--accent-contrast);
       }
     }
 
@@ -57,21 +57,21 @@ import {
     }
 
     .prompt-card {
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--border);
       border-radius: 10px;
       padding: 1rem;
       cursor: pointer;
-      background: #fafbfc;
+      background: var(--surface-raised);
       transition: border-color 0.15s ease, box-shadow 0.15s ease;
 
       &:hover {
-        border-color: #a5b4fc;
+        border-color: var(--accent);
       }
 
       &.selected {
-        border-color: #6366f1;
-        background: #eef2ff;
-        box-shadow: 0 0 0 1px #6366f1;
+        border-color: var(--accent);
+        background: var(--accent-soft);
+        box-shadow: 0 0 0 1px var(--accent);
       }
 
       h4 {
@@ -83,7 +83,7 @@ import {
       p {
         margin: 0 0 0.5rem;
         font-size: 0.8125rem;
-        color: #64748b;
+        color: var(--text-muted);
         line-height: 1.45;
       }
     }
@@ -99,18 +99,18 @@ import {
       font-weight: 500;
       padding: 0.15rem 0.5rem;
       border-radius: 999px;
-      background: #e2e8f0;
-      color: #475569;
+      background: var(--border);
+      color: var(--text-secondary);
     }
 
     .meta-chip.framework {
-      background: #dbeafe;
-      color: #1d4ed8;
+      background: var(--accent-soft);
+      color: var(--accent-soft-text);
     }
 
     .meta-chip.coverage {
-      background: #dcfce7;
-      color: #166534;
+      background: var(--success-bg);
+      color: var(--success-text);
     }
 
     .best-for {
@@ -124,8 +124,8 @@ import {
       font-size: 0.68rem;
       padding: 0.1rem 0.4rem;
       border-radius: 4px;
-      background: #f1f5f9;
-      color: #64748b;
+      background: var(--divider);
+      color: var(--text-muted);
     }
 
     .builder-layout {
@@ -148,29 +148,29 @@ import {
       min-height: 28rem;
       max-height: min(70vh, 48rem);
       overflow: auto;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
+      background: var(--surface-raised);
+      border: 1px solid var(--border);
       border-radius: 8px;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 0.75rem;
       line-height: 1.55;
       white-space: pre-wrap;
       word-break: break-word;
-      color: #0f172a;
+      color: var(--text);
     }
 
     .prompt-meta-line {
       margin: 0 0 0.75rem;
       font-size: 0.75rem;
-      color: #64748b;
+      color: var(--text-muted);
     }
 
     .command-box {
       margin-top: 0.5rem;
       padding: 0.75rem;
-      background: #0f172a;
+      background: var(--code-bg);
       border-radius: 8px;
-      color: #e2e8f0;
+      color: var(--border);
       font-family: ui-monospace, monospace;
       font-size: 0.75rem;
       overflow-x: auto;
@@ -185,7 +185,7 @@ import {
       font-size: 0.68rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: #94a3b8;
+      color: var(--text-muted);
       margin-bottom: 0.35rem;
     }
 
@@ -199,7 +199,7 @@ import {
 
     .copy-feedback {
       font-size: 0.75rem;
-      color: #16a34a;
+      color: var(--success-text);
       font-weight: 500;
     }
 
@@ -207,7 +207,7 @@ import {
       margin: 0;
       padding-left: 1.1rem;
       font-size: 0.8125rem;
-      color: #64748b;
+      color: var(--text-muted);
       line-height: 1.55;
 
       li + li {
@@ -220,7 +220,7 @@ import {
       gap: 1.25rem;
       margin-top: 1.25rem;
       padding-top: 1.25rem;
-      border-top: 1px solid #f1f5f9;
+      border-top: 1px solid var(--divider);
     }
 
     @media (min-width: 900px) {

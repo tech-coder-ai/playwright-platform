@@ -217,13 +217,13 @@ import { ChartPanelComponent } from '../../shared/components/chart-panel.compone
   styles: `
     .page-subtitle {
       margin: 0.25rem 0 0;
-      color: #64748b;
+      color: var(--text-muted);
       font-size: 0.875rem;
     }
 
     .section-hint {
       margin: -0.25rem 0 0.75rem;
-      color: #64748b;
+      color: var(--text-muted);
       font-size: 0.8125rem;
     }
 
@@ -236,11 +236,11 @@ import { ChartPanelComponent } from '../../shared/components/chart-panel.compone
 
     .filter-form select {
       padding: 0.5rem 0.625rem;
-      border: 1px solid #cbd5e1;
+      border: 1px solid var(--border-strong);
       border-radius: 8px;
       font: inherit;
       min-width: 12rem;
-      background: #fff;
+      background: var(--surface);
     }
 
     .stats-grid {
@@ -251,8 +251,8 @@ import { ChartPanelComponent } from '../../shared/components/chart-panel.compone
     }
 
     .stat-card {
-      background: #fff;
-      border: 1px solid #e2e8f0;
+      background: var(--surface);
+      border: 1px solid var(--border);
       border-radius: 12px;
       padding: 1rem 1.25rem;
       display: flex;
@@ -263,21 +263,21 @@ import { ChartPanelComponent } from '../../shared/components/chart-panel.compone
 
     .stat-label {
       font-size: 0.8125rem;
-      color: #64748b;
+      color: var(--text-muted);
     }
 
     .stat-value {
       font-size: 1.75rem;
       font-weight: 700;
-      color: #0f172a;
+      color: var(--text);
     }
 
     .stat-pass .stat-value {
-      color: #15803d;
+      color: var(--success-text);
     }
 
     .stat-fail .stat-value {
-      color: #b91c1c;
+      color: var(--danger-text);
     }
 
     .charts-grid {
@@ -315,7 +315,7 @@ import { ChartPanelComponent } from '../../shared/components/chart-panel.compone
       }
 
       p {
-        color: #64748b;
+        color: var(--text-muted);
         margin: 0 0 1rem;
       }
     }
@@ -324,7 +324,7 @@ import { ChartPanelComponent } from '../../shared/components/chart-panel.compone
       list-style: none;
       padding: 0;
       margin: 0.75rem 0 0;
-      border-top: 1px solid #e2e8f0;
+      border-top: 1px solid var(--border);
       max-height: 8.5rem;
       overflow-y: auto;
       flex: 1;
@@ -334,7 +334,7 @@ import { ChartPanelComponent } from '../../shared/components/chart-panel.compone
         display: flex;
         gap: 0.75rem;
         padding: 0.625rem 0;
-        border-bottom: 1px solid #f1f5f9;
+        border-bottom: 1px solid var(--divider);
       }
     }
 
@@ -357,17 +357,17 @@ import { ChartPanelComponent } from '../../shared/components/chart-panel.compone
     .run-meta {
       display: block;
       font-size: 0.8125rem;
-      color: #64748b;
+      color: var(--text-muted);
       margin-top: 0.125rem;
     }
 
     .muted {
-      color: #64748b;
+      color: var(--text-muted);
       font-size: 0.8125rem;
     }
 
     .pass-rate.low {
-      color: #b91c1c;
+      color: var(--danger-text);
       font-weight: 600;
     }
 
@@ -378,13 +378,13 @@ import { ChartPanelComponent } from '../../shared/components/chart-panel.compone
 
       li {
         padding: 0.75rem 0;
-        border-bottom: 1px solid #f1f5f9;
+        border-bottom: 1px solid var(--divider);
       }
     }
 
     .error-msg {
       font-size: 0.8125rem;
-      color: #b91c1c;
+      color: var(--danger-text);
       margin-top: 0.25rem;
     }
   `,

@@ -271,7 +271,7 @@ import { apiErrorMessage } from '../../shared/utils/api-error.util';
         display: block;
         margin-top: 0.125rem;
         font-size: 0.8125rem;
-        color: #64748b;
+        color: var(--text-muted);
         font-weight: 400;
       }
     }
@@ -292,23 +292,23 @@ import { apiErrorMessage } from '../../shared/utils/api-error.util';
 
     .status-pending,
     .status-running {
-      background: #fff3e0;
-      color: #e65100;
+      background: var(--warning-bg);
+      color: var(--warning-text);
     }
 
     .status-passed {
-      background: #e8f5e9;
-      color: #2e7d32;
+      background: var(--success-bg);
+      color: var(--success-text);
     }
 
     .status-failed {
-      background: #ffebee;
-      color: #c62828;
+      background: var(--danger-bg);
+      color: var(--danger-text);
     }
 
     .status-skipped {
-      background: #eceff1;
-      color: #546e7a;
+      background: var(--neutral-bg);
+      color: var(--neutral-text);
     }
   `,
 })

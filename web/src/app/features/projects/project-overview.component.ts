@@ -135,8 +135,8 @@ import { TestRunsService } from '../../core/services/test-runs.service';
     }
 
     .metric-card {
-      background: #fff;
-      border: 1px solid #e2e8f0;
+      background: var(--surface);
+      border: 1px solid var(--border);
       border-radius: 10px;
       padding: 1rem 1.125rem;
     }
@@ -144,7 +144,7 @@ import { TestRunsService } from '../../core/services/test-runs.service';
     .metric-label {
       display: block;
       font-size: 0.75rem;
-      color: #64748b;
+      color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.04em;
       margin-bottom: 0.25rem;
@@ -153,7 +153,7 @@ import { TestRunsService } from '../../core/services/test-runs.service';
     .metric-value {
       font-size: 1.5rem;
       font-weight: 700;
-      color: #0f172a;
+      color: var(--text);
     }
 
     .panel-grid {
@@ -177,7 +177,7 @@ import { TestRunsService } from '../../core/services/test-runs.service';
     .panel-desc {
       margin: 0.25rem 0 0;
       font-size: 0.8125rem;
-      color: #64748b;
+      color: var(--text-muted);
     }
 
     .workflow-steps {
@@ -191,7 +191,7 @@ import { TestRunsService } from '../../core/services/test-runs.service';
         display: grid;
         gap: 0.125rem;
         padding-bottom: 1rem;
-        border-bottom: 1px solid #f1f5f9;
+        border-bottom: 1px solid var(--divider);
 
         &:last-child {
           border-bottom: none;
@@ -204,12 +204,12 @@ import { TestRunsService } from '../../core/services/test-runs.service';
 
         span {
           font-size: 0.8125rem;
-          color: #64748b;
+          color: var(--text-muted);
         }
 
         a {
           font-size: 0.8125rem;
-          color: #4f46e5;
+          color: var(--accent);
           text-decoration: none;
           margin-top: 0.125rem;
 

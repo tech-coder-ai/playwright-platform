@@ -72,11 +72,11 @@ interface ProjectTab {
       align-items: center;
       gap: 0.375rem;
       font-size: 0.8125rem;
-      color: #64748b;
+      color: var(--text-muted);
       margin-bottom: 0.375rem;
 
       a {
-        color: #4f46e5;
+        color: var(--accent);
         text-decoration: none;
 
         &:hover {
@@ -91,7 +91,7 @@ interface ProjectTab {
 
     .project-desc {
       margin: 0.375rem 0 0;
-      color: #64748b;
+      color: var(--text-muted);
       font-size: 0.875rem;
       max-width: 40rem;
     }
@@ -105,7 +105,7 @@ interface ProjectTab {
     .project-nav {
       display: flex;
       gap: 0.25rem;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid var(--border);
       margin-bottom: 1.5rem;
       overflow-x: auto;
 
@@ -113,19 +113,19 @@ interface ProjectTab {
         padding: 0.75rem 1rem;
         font-size: 0.875rem;
         font-weight: 500;
-        color: #64748b;
+        color: var(--text-muted);
         text-decoration: none;
         border-bottom: 2px solid transparent;
         margin-bottom: -1px;
         white-space: nowrap;
 
         &:hover {
-          color: #334155;
+          color: var(--text-secondary);
         }
 
         &.active {
-          color: #4f46e5;
-          border-bottom-color: #4f46e5;
+          color: var(--accent);
+          border-bottom-color: var(--accent);
         }
       }
     }

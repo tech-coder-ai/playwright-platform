@@ -26,11 +26,19 @@ export async function runPlaywrightSpec(
   env: Record<string, string>,
   options: RunPlaywrightOptions = {},
 ): Promise<PlaywrightRunResult> {
-  const args = [resolvePlaywrightCli(getTestsRoot()), 'test', specFile, '--config=playwright.config.ts'];
+  // Playwright treats the file argument as a pattern; forward slashes match on
+  // every OS, backslashes (a Windows-style path from the DB/UI) never do.
+  const normalizedSpec = specFile.replace(/\\/g, '/');
+  const args = [
+    resolvePlaywrightCli(getTestsRoot()),
+    'test',
+    normalizedSpec,
+    '--config=playwright.config.ts',
+  ];
   if (options.headed) {
     args.push('--headed');
   }
-  return runPlaywrightCommand(runId, specFile, args, env, options);
+  return runPlaywrightCommand(runId, normalizedSpec, args, env, options);
 }
 
 export async function runGherkinFeature(
@@ -41,8 +49,11 @@ export async function runGherkinFeature(
 ): Promise<PlaywrightRunResult> {
   const resolvedFeature = resolveFeaturePath(featureFile);
   const slug = path.basename(resolvedFeature, '.feature');
-  const stepFile = path.join('steps', `${slug}.steps.ts`);
-  const stepPath = path.join(getTestsRoot(), stepFile);
+  // CLI arguments use POSIX separators on every OS: cucumber resolves
+  // --require through glob matching, where a Windows backslash is an escape
+  // character and silently loads nothing.
+  const stepFile = `steps/${slug}.steps.ts`;
+  const stepPath = path.join(getTestsRoot(), 'steps', `${slug}.steps.ts`);
 
   try {
     await fs.access(stepPath);
@@ -204,7 +215,11 @@ export async function readRunLog(runId: string): Promise<string | null> {
 export function resolveArtifactPath(runId: string, relativePath: string): string {
   const runDir = getRunArtifactDir(runId);
   const resolved = path.resolve(runDir, relativePath);
-  if (!resolved.startsWith(runDir)) {
+  // path.relative-based containment: unlike a startsWith check it cannot be
+  // fooled by sibling dirs sharing a prefix and is separator/case-correct on
+  // Windows as well as POSIX.
+  const relative = path.relative(runDir, resolved);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
     throw new Error('Invalid artifact path');
   }
   return resolved;

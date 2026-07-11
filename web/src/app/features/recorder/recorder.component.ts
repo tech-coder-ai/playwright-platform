@@ -12,12 +12,13 @@ import { TestSuitesService } from '../../core/services/test-suites.service';
 import { CodegenSocketService } from '../../core/services/codegen-socket.service';
 import { CodegenApiService } from '../../core/services/codegen-api.service';
 import { apiErrorMessage } from '../../shared/utils/api-error.util';
+import { RemoteViewportComponent } from '../../shared/components/remote-viewport.component';
 
 type ReviewTab = 'feature' | 'steps' | 'pageObject';
 
 @Component({
   selector: 'app-recorder',
-  imports: [RouterLink, ReactiveFormsModule],
+  imports: [RouterLink, ReactiveFormsModule, RemoteViewportComponent],
   template: `
     <div class="page-header">
       <div>
@@ -52,6 +53,14 @@ type ReviewTab = 'feature' | 'steps' | 'pageObject';
             }
           </select>
         </label>
+        <label>
+          Recording browser
+          <select formControlName="recorder">
+            <option value="">Server default</option>
+            <option value="remote">Streamed in this page (server-hosted)</option>
+            <option value="local">Window on the API machine</option>
+          </select>
+        </label>
         @if (!recording()) {
           <button class="btn btn-primary" type="submit" [disabled]="form.invalid">Start recording</button>
         } @else {
@@ -73,10 +82,16 @@ type ReviewTab = 'feature' | 'steps' | 'pageObject';
       }
 
       @if (recording()) {
-        <p class="recording-hint">
-          A Chromium window should open on the machine running the API. Interact with the page — code
-          appears below as you go.
-        </p>
+        @if (codegen.session()?.recorder === 'remote') {
+          <div class="remote-stage">
+            <app-remote-viewport [sessionId]="codegen.session()!.id" />
+          </div>
+        } @else {
+          <p class="recording-hint">
+            A Chromium window should open on the machine running the API. Interact with the page — code
+            appears below as you go.
+          </p>
+        }
       }
     </section>
 
@@ -209,12 +224,12 @@ type ReviewTab = 'feature' | 'steps' | 'pageObject';
       font-size: 0.8125rem;
       padding: 0.25rem 0.625rem;
       border-radius: 999px;
-      background: #ffebee;
-      color: #c62828;
+      background: var(--danger-bg);
+      color: var(--danger-text);
 
       &.connected {
-        background: #e8f5e9;
-        color: #2e7d32;
+        background: var(--success-bg);
+        color: var(--success-text);
       }
     }
 
@@ -226,7 +241,11 @@ type ReviewTab = 'feature' | 'steps' | 'pageObject';
     .recording-hint {
       margin: 0.75rem 0 0;
       font-size: 0.875rem;
-      color: #e65100;
+      color: var(--warning-text);
+    }
+
+    .remote-stage {
+      margin-top: 1rem;
     }
 
     .output-header {
@@ -243,8 +262,8 @@ type ReviewTab = 'feature' | 'steps' | 'pageObject';
     .code-output {
       margin: 0;
       padding: 1rem;
-      background: #1a1a2e;
-      color: #e0e0e0;
+      background: var(--code-bg);
+      color: var(--code-text);
       border-radius: 4px;
       font-size: 0.8125rem;
       overflow-x: auto;
@@ -277,17 +296,17 @@ type ReviewTab = 'feature' | 'steps' | 'pageObject';
 
     .tab-btn {
       padding: 0.375rem 0.75rem;
-      border: 1px solid #ccc;
+      border: 1px solid var(--border-strong);
       border-radius: 4px;
-      background: #fff;
+      background: var(--surface);
       cursor: pointer;
       font: inherit;
       font-size: 0.875rem;
 
       &.active {
-        background: #3d5afe;
-        border-color: #3d5afe;
-        color: #fff;
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--accent-contrast);
       }
     }
 
@@ -302,18 +321,18 @@ type ReviewTab = 'feature' | 'steps' | 'pageObject';
 
     .status-recording,
     .status-starting {
-      background: #fff3e0;
-      color: #e65100;
+      background: var(--warning-bg);
+      color: var(--warning-text);
     }
 
     .status-stopped {
-      background: #eceff1;
-      color: #546e7a;
+      background: var(--neutral-bg);
+      color: var(--neutral-text);
     }
 
     .status-error {
-      background: #ffebee;
-      color: #c62828;
+      background: var(--danger-bg);
+      color: var(--danger-text);
     }
 
     code {
@@ -354,6 +373,7 @@ export class RecorderComponent implements OnInit, OnDestroy {
   readonly form = this.fb.nonNullable.group({
     url: ['https://example.com', Validators.required],
     environmentId: [''],
+    recorder: [''],
   });
 
   readonly reviewForm = this.fb.nonNullable.group({
@@ -425,7 +445,10 @@ export class RecorderComponent implements OnInit, OnDestroy {
     this.generateError.set(null);
     this.saveError.set(null);
     this.saveMessage.set(null);
-    this.codegen.start(this.projectId, this.form.getRawValue().url);
+    const { url, recorder } = this.form.getRawValue();
+    this.codegen.start(this.projectId, url, {
+      ...(recorder ? { recorder: recorder as 'local' | 'remote' } : {}),
+    });
   }
 
   stopRecording() {

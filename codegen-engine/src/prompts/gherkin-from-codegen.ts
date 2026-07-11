@@ -1,43 +1,65 @@
-import { HELPER_CATALOG, WAIT_AND_RESILIENCE_RULES } from '../helpers-catalog';
+import { GHERKIN_EXAMPLE, HELPER_CATALOG, WAIT_AND_RESILIENCE_RULES } from '../helpers-catalog';
 
 export function buildGherkinGenerationPrompt(codegenOutput: string, targetUrl: string): string {
-  return `You are a senior test automation engineer. Convert Playwright codegen output into resilient, production-ready Gherkin tests that handle slow UIs and optional elements.
+  return `You are a senior test automation engineer. Convert a Playwright codegen recording into a
+production-ready Cucumber test (feature file + step definitions + page object) for a slow
+enterprise web application.
 
-Target URL: ${targetUrl}
+## ENVIRONMENT FACTS (design for these — they are why naive conversions fail)
+- First page load can take up to 3 MINUTES; the SPA keeps rendering long after DOM load.
+- Elements become visible BEFORE their click handlers attach, so early clicks are silently
+  swallowed; spinners/skeletons appear between route changes.
+- Tests run headless under cucumber-js. \`this.page\` in each step is a Playwright Page provided
+  by the World; the per-step timeout is already 240s (do not set it yourself).
+- The helper library below wraps every interaction with readiness gates, visibility waits,
+  effect verification, and retries. Output that bypasses it is mechanically rejected.
 
-${HELPER_CATALOG}
+## TARGET URL
+${targetUrl}
 
-${WAIT_AND_RESILIENCE_RULES}
-
-Playwright codegen recording:
+## RECORDING (ground truth for locators — see rule R1)
 \`\`\`typescript
 ${codegenOutput}
 \`\`\`
+${HELPER_CATALOG}
+${WAIT_AND_RESILIENCE_RULES}
+${GHERKIN_EXAMPLE}
 
-Respond with ONLY valid JSON (no markdown fences) matching this schema:
+## METHOD — follow in order
+1. Parse the recording into an ordered list of actions (goto, click, fill, press, select),
+   keeping each action's locator chain verbatim.
+2. Classify every click:
+   a. the recording navigated after it (link, submit, menu entry that loads a page)
+      → clickAndWaitForUrl
+   b. it revealed content that the NEXT recorded action targets (menu, dropdown, dialog,
+      accordion, expander) → openMenu(trigger, thatRevealedContent)
+   c. anything else → waitAndClick
+3. Design the scenario: Given = navigation via navigate(); When = one step per user intent
+   (an openMenu + selection may be one step); Then = at least one assertion on visible evidence
+   that the final action worked (heading, table, toast the flow revealed).
+4. Write the page object first: one intention-revealing method per screen interaction, wrapping
+   the recorded locators with helpers; the FIRST interaction after navigation passes
+   { firstInteraction: true }.
+5. Write step definitions that only call navigate(), page-object methods, and assertions.
+6. Self-check before answering:
+   - every feature line has exactly one matching step definition, none unused (R6)
+   - zero bare .click()/.fill()/.press()/.goto() anywhere (R2, R3)
+   - every recorded action's locator appears verbatim in the page object (R1)
+   - every navigation click uses clickAndWaitForUrl; every reveal click uses openMenu (R5)
+   - every helper used is imported from '../helpers' in THAT file
+   - the class imported by step definitions matches the class the page object exports (R7)
+   - no skippable helper (clickIfVisible / runOptionalStep / …) on a recorded action (R8)
+
+## OUTPUT CONTRACT
+Respond with ONLY a single JSON object — no markdown fences, no commentary before or after.
+Use standard JSON string escaping (\\n for newlines inside the string values).
+
 {
-  "featureFile": "Gherkin feature file content",
-  "stepDefinitions": "TypeScript step definitions file content using @cucumber/cucumber and the helpers above",
-  "pageObject": "TypeScript Page Object class for the main screen",
-  "summary": "One sentence describing what was generated"
+  "featureFile": "<complete .feature file>",
+  "stepDefinitions": "<complete TypeScript step definitions file>",
+  "pageObject": "<complete TypeScript page object file>",
+  "summary": "<one sentence: what flow the test covers>"
 }
 
-Rules:
-- Use clear Gherkin Given/When/Then steps that map to the recorded actions
-- Every single Gherkin step in featureFile MUST have exactly one matching Given/When/Then definition in stepDefinitions — no undefined and no unused steps
-- Tag scenarios with @optional on steps that depend on UI that may not always render (banners, promos, secondary menus)
-- Every helper used in stepDefinitions AND in pageObject must be imported from '../helpers' in that same file — do not invent helper names outside the catalog
-- Step definitions MUST import the page object exactly as: import { <ClassName> } from '../page-objects/page-object'; (the platform rewrites this path on save — never invent another path, and <ClassName> must be the class exported by pageObject)
-- The initial navigation Given step MUST use the navigate(page, url) helper (it has the 3-minute first-load timeout built in) — never a raw page.goto with default timeout
-- The FIRST interaction after navigation must pass { firstInteraction: true } to waitAndClick/waitAndFill/openMenu/clickAndWaitForUrl (60s wait — the app keeps rendering after load)
-- If the recording shows the URL changed after a click, that click MUST use clickAndWaitForUrl — a visible element on a still-loading page can swallow clicks, so the effect must be verified and the click retried
-- All screen interactions in step definitions must go through page object methods; do not inline locators for the main screen in step definitions
-- Page object methods should wrap the EXACT recorded locators with waitAndClick / waitAndFill / openMenu — see LOCATOR FIDELITY RULES above; inventing a different locator than the recording is the #1 cause of failing generated tests
-- NEVER emit bare .click() or .fill() without a prior waitFor({ state: 'visible' }) or a helper that waits internally
-- Use clickRoleIfVisible / clickIfVisible / runOptionalStep for any action that might be absent in headless or alternate environments
-- For multi-step menus: wait for each level to become visible before the next interaction
-- Then steps must use assertVisible, assertToast, or expect(...).toBeVisible({ timeout: 15_000 })
-- Page Object: role-based locators first; every public action method waits for visibility before interacting; optional actions return Promise<boolean>
-- Keep file contents complete and runnable
-- Do not include explanations outside the JSON object`;
+Every file must be complete and runnable exactly as emitted.`;
 }
